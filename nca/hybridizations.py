@@ -5,7 +5,9 @@ from .utilities import *
 def make_Delta_semicirc(Gamma, D, beta, mu, time_mesh):
     
     freq_mesh = time_mesh.adjoint()
-    assert(freq_mesh.xmax >= D)
+    assert(freq_mesh.xmax >= 10 * D)
+    assert(freq_mesh.xmin <= 0.1 * D)
+    assert(freq_mesh.xmin <= 0.1 / beta)
     
     ww = freq_mesh.values()
     dos = np.zeros(len(ww), dtype=float)
@@ -25,7 +27,9 @@ def make_Delta_semicirc(Gamma, D, beta, mu, time_mesh):
 def make_Delta_lorentzian(Gamma, D, beta, mu, time_mesh):
     
     freq_mesh = time_mesh.adjoint()
-    assert(freq_mesh.xmax >= D)
+    assert(freq_mesh.xmax >= 10 * D)
+    assert(freq_mesh.xmin <= 0.1 * D)
+    assert(freq_mesh.xmin <= 0.1 / beta)
     
     ww = freq_mesh.values()
     dos = D / (ww**2 + D**2) / np.pi # norm = 1

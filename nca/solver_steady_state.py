@@ -9,7 +9,7 @@ class NCA_Steady_State_Solver:
     
     def __init__(self, H_loc, delta_less_dict, delta_grea_dict, time_mesh):
         
-        self.H_loc = H_loc
+        self.H_loc = np.asarray(H_loc)
         self.D = len(self.H_loc)
         self.Z_loc = self.D
         
@@ -34,14 +34,19 @@ class NCA_Steady_State_Solver:
         ### initialization
         for k, t in enumerate(self.time_mesh.values()):
             if t >= 0.:
-                self.R_grea_reta[k, :] = -1j# * np.exp(- 1.j * self.H_loc * t)
-            self.R_less[k, :] = -1j# * np.exp(1.j * self.H_loc * t)
+                self.R_grea_reta[k, :] = -1j * np.exp(- 1.j * self.H_loc * t)
+            self.R_less[k, :] = -1j * np.exp(1.j * self.H_loc * t)
             
             self.R_grea_reta[k, np.isposinf(self.H_loc)] = 0.
             self.R_less[k, np.isposinf(self.H_loc)] = 0.
                 
         self.freq_mesh = self.time_mesh.adjoint()
         self.freqs = self.freq_mesh.values()
+
+        diff_H_loc = np.diff(np.unique(self.H_loc))
+        diff_H_loc = diff_H_loc[np.isfinite(diff_H_loc)]
+        assert(self.freq_mesh.delta < 0.1 * np.min(diff_H_loc))
+        assert(self.freq_mesh.xmax > 10 * np.max(diff_H_loc))
         
         self.R_grea_w = np.empty((N, self.D), dtype=complex)
         self.R_grea_reta_w = np.empty((N, self.D), dtype=complex)
@@ -86,34 +91,45 @@ class NCA_Steady_State_Solver:
                                             * self.R_less[:, k + 2**x]
         
         
-    def greater_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False):
+    def greater_loop(self, tol=1e-8, min_iter=5, max_iter=100, eta=1.0, plot=False, verbose=False):
         n = 0
         err = +np.inf
         active_orb = self.H_loc < np.inf
+        eta_i = eta
+        q = np.log(100.) / np.log(min_iter)
         
-        while (err > tol and n < max_iter):
+        if plot:
+            plt.plot(self.freq_mesh.values(), self.S_grea_reta_w[:, 0].imag, label=str(self.N1))
+
+        while ((err > tol and n < max_iter) or n < min_iter):
 
             self.self_energy_grea()
             _, self.S_grea_reta_w = fourier_transform(self.time_mesh, self.S_grea_reta, axis=0)
-            # self.S_grea_reta_w.set_from_fourier(self.S_grea_reta)
             
             R_grea_reta_w_prev = self.R_grea_reta_w.copy()
-            self.R_grea_reta_w[:] = 1. / (self.freq_mesh.values()[:, None] - self.H_loc[None, :] - self.S_grea_reta_w)
+            self.R_grea_reta_w[:] = 1. / (self.freq_mesh.values()[:, None] - self.H_loc[None, :] - self.S_grea_reta_w + 1.j * eta_i)
             self.R_grea_reta_w[:, ~active_orb] = 0.
             err = np.trapz(np.mean(np.abs(self.R_grea_reta_w - R_grea_reta_w_prev), axis=1), dx=self.freq_mesh.delta)
             if verbose:
                 print(self.N1, err)
             _, self.R_grea_reta = inv_fourier_transform(self.freq_mesh, self.R_grea_reta_w, axis=0)
 
-            self.R_grea_reta /= 1j * np.mean(self.R_grea_reta[len(self.time_mesh) // 2], where=active_orb)
-            
+            for k in range(self.D):
+                if active_orb[k]:
+                    self.R_grea_reta[k] /= 2.j * self.R_grea_reta[len(self.time_mesh) // 2, k]
+
             self.N1 += 1
             n += 1
+            if n >= min_iter:
+                eta_i = 0.
+            else:
+                eta_i /= q
             
             if plot:
                 plt.plot(self.freq_mesh.values(), self.S_grea_reta_w[:, 0].imag, label=str(self.N1))
 
         if verbose:
+            print('Done.')
             print()
             
         if plot:
@@ -175,6 +191,7 @@ class NCA_Steady_State_Solver:
                 plt.plot(self.freq_mesh.values(), self.S_less_w[:, 0].imag, label=str(self.N2))
           
         if verbose:
+            print('Done.')
             print()
             
         if plot:
@@ -211,3 +228,9 @@ class NCA_Steady_State_Solver:
         G_less *= -1j / self.Z_loc
         return G_less
     
+    def get_DOS(self, orb):
+        G_less = self.get_G_less(orb)
+        G_grea = self.get_G_grea(orb)
+
+        dos = 1j * (G_grea - G_less) / (2 * np.pi)
+        return np.real(fourier_transform(self.time_mesh, dos)[1])
