@@ -11,13 +11,15 @@ class Mesh:
         self.xmax = xmax
         self.nr_samples = nr_samples
         self.delta = (xmax - self.xmin) / (nr_samples - 1)
+        self.data = None
     
     def values(self):
-        return np.linspace(self.xmin, self.xmax, self.nr_samples)
+        if self.data is None:
+            self.data = np.linspace(self.xmin, self.xmax, self.nr_samples)
+        return self.data
 
     def adjoint(self):
-        adj_values = 2 * np.pi * fft.fftshift(fft.fftfreq(self.nr_samples, self.delta))
-        return Mesh(adj_values[-1], len(adj_values))
+        return Mesh(2 * np.pi * (self.nr_samples - 1) / (2 * self.delta * self.nr_samples), self.nr_samples)
 
     def __len__(self):
         return self.nr_samples

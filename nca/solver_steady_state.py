@@ -143,13 +143,11 @@ class NCA_Steady_State_Solver:
         if err > tol:
             print(f'WARNING: poor convergence, err={err}')
             
-        self.R_grea_w[:] = 2 * self.R_grea_reta_w.imag
-        self.R_grea_w *= 1j
+        self.R_grea_w[:] = 2j * self.R_grea_reta_w.imag
         _, self.R_grea = inv_fourier_transform(self.freq_mesh, self.R_grea_w, axis=0)
         # self.R_grea.set_from_fourier(self.R_grea_w)
         
-        self.S_grea_w[:] = 2 * self.S_grea_reta_w.imag
-        self.S_grea_w *= 1j
+        self.S_grea_w[:] = 2j * self.S_grea_reta_w.imag
         _, self.S_grea = inv_fourier_transform(self.freq_mesh, self.S_grea_w, axis=0)
         # self.S_grea.set_from_fourier(self.S_grea_w)
         
