@@ -28,5 +28,18 @@ class FourierTest(unittest.TestCase):
         plt.legend()
         plt.show()
 
+class WindowTest(unittest.TestCase):
+
+    def test_A(self):
+        m = Mesh(10., 101)
+        window = planck_taper_window(m, 5., 2.)
+        Wm = 4.
+        Wp = 6.
+
+        for i in [25, 30, 75, 80]:
+            x = m.values()[i]
+            ref = 1. / (1. + np.exp((Wp - Wm) / (Wp - np.abs(x)) - (Wp - Wm) / (np.abs(x) - Wm)))
+            self.assertAlmostEqual(window[i], ref)
+
 if __name__ == '__main__':
     unittest.main()

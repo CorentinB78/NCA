@@ -9,7 +9,7 @@ from nca.solver_steady_state import *
 class SolverSteadyStateTest(unittest.TestCase):
 
     def test_fluctuation_dissipation(self):
-        mesh = Mesh(100., 10001)
+        mesh = Mesh(3000., 200001)
         # times = time_mesh.values()
 
         ### local model
@@ -20,12 +20,13 @@ class SolverSteadyStateTest(unittest.TestCase):
         ### basis: 0, dn, up, updn
         H_loc = np.array([0., eps, eps, 2*eps + U])
 
-        beta = 10. / Gamma
-        mu = 0.3 * Gamma
-        D = 12.0 * Gamma
+        beta = 3. / Gamma
+        Ef = 0.3 * Gamma
+        D = 6.0 * Gamma
+        E0 = 0.
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, mu, mesh)
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
 
         S = NCA_Steady_State_Solver(H_loc, 
                                     {0: delta_less, 1: delta_less}, 
@@ -44,10 +45,10 @@ class SolverSteadyStateTest(unittest.TestCase):
         # dos = gf.GfReTime(mesh=time_mesh, data=dos)
 
 
-        self.assertAlmostEqual(G_grea[len(mesh) // 2] - G_less[len(mesh) // 2], -1.0j, 3)
+        self.assertAlmostEqual(G_grea[len(mesh) // 2] - G_less[len(mesh) // 2], -1.0j, 2)
 
-        self.assertAlmostEqual(G_grea[len(mesh) // 2 - 100], -np.conj(G_grea[len(mesh) // 2 + 100]) , 3)
-        self.assertAlmostEqual(G_less[len(mesh) // 2 - 100], -np.conj(G_less[len(mesh) // 2 + 100]) , 3)
+        self.assertAlmostEqual(G_grea[len(mesh) // 2 - 100], -np.conj(G_grea[len(mesh) // 2 + 100]) , 2)
+        self.assertAlmostEqual(G_less[len(mesh) // 2 - 100], -np.conj(G_less[len(mesh) // 2 + 100]) , 2)
 
 
         freq_mesh, G_grea_w = fourier_transform(mesh, G_grea)
@@ -55,9 +56,9 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         dos_w = 1.j * (G_grea_w - G_less_w) / (2. * np.pi)
 
-        mask = np.abs(freq_mesh.values() - mu) < 1.0
-        np.testing.assert_allclose(G_less_w[mask] / dos_w[mask] / (2j * np.pi), tb.fermi(freq_mesh.values()[mask], mu, beta), atol = 1e-2)
-        np.testing.assert_allclose(G_grea_w[mask] / dos_w[mask] / (-2j * np.pi), tb.fermi(-freq_mesh.values()[mask], -mu, beta), atol = 1e-2)
+        mask = np.abs(freq_mesh.values() - Ef) < 1.0
+        np.testing.assert_allclose(G_less_w[mask] / dos_w[mask] / (2j * np.pi), tb.fermi(freq_mesh.values()[mask], Ef, beta), atol = 1e-2)
+        np.testing.assert_allclose(G_grea_w[mask] / dos_w[mask] / (-2j * np.pi), tb.fermi(-freq_mesh.values()[mask], -Ef, beta), atol = 1e-2)
 
 
 

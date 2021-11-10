@@ -38,3 +38,19 @@ def inv_fourier_transform(mesh, f, axis=-1):
     g *= mesh.delta * np.exp(-1j * adj_mesh.values() * mesh.xmin)
     g /= 2 * np.pi
     return adj_mesh, np.swapaxes(g, -1, axis)
+
+def planck_taper_window(mesh, W, eps):
+    Wp = W + eps / 2.
+    Wm = W - eps / 2.
+    assert(Wp < mesh.xmax)
+    assert(Wm > 0.)
+    out = np.empty(len(mesh))
+    for k, x in enumerate(mesh.values()):
+        if np.abs(x) >= Wp:
+            out[k] = 0
+        elif np.abs(x) > Wm:
+            # out[k] = 1. / (1. + np.exp((Wp - Wm) / (Wp - np.abs(x)) - (Wp - Wm) / (np.abs(x) - Wm)))
+            out[k] = 0.5 * (1. - np.tanh((Wp - Wm) / (Wp - np.abs(x)) - (Wp - Wm) / (np.abs(x) - Wm)))
+        else:
+            out[k] = 1.
+    return out

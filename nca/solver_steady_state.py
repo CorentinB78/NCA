@@ -32,21 +32,23 @@ class NCA_Steady_State_Solver:
         self.S_grea_reta = np.zeros((N, self.D), dtype=complex)
 
         ### initialization
+        active_orb = self.H_loc < np.inf
         for k, t in enumerate(self.time_mesh.values()):
             if t >= 0.:
-                self.R_grea_reta[k, :] = -1j * np.exp(- 1.j * self.H_loc * t)
-            self.R_less[k, :] = -1j * np.exp(1.j * self.H_loc * t)
+                self.R_grea_reta[k, active_orb] = -1j * np.exp(- 1.j * self.H_loc[active_orb] * t)
+            self.R_less[k, active_orb] = -1j * np.exp(1.j * self.H_loc[active_orb] * t)
             
-            self.R_grea_reta[k, np.isposinf(self.H_loc)] = 0.
-            self.R_less[k, np.isposinf(self.H_loc)] = 0.
+            self.R_grea_reta[k, ~active_orb] = 0.
+            self.R_less[k, ~active_orb] = 0.
                 
         self.freq_mesh = self.time_mesh.adjoint()
         self.freqs = self.freq_mesh.values()
 
         diff_H_loc = np.diff(np.unique(self.H_loc))
         diff_H_loc = diff_H_loc[np.isfinite(diff_H_loc)]
-        assert(self.freq_mesh.delta < 0.1 * np.min(diff_H_loc))
-        assert(self.freq_mesh.xmax > 10 * np.max(diff_H_loc))
+        if len(diff_H_loc) > 0:
+            assert(self.freq_mesh.delta < 0.1 * np.min(diff_H_loc))
+            assert(self.freq_mesh.xmax > 10 * np.max(diff_H_loc))
         
         self.R_grea_w = np.empty((N, self.D), dtype=complex)
         self.R_grea_reta_w = np.empty((N, self.D), dtype=complex)
@@ -99,7 +101,7 @@ class NCA_Steady_State_Solver:
         q = np.log(100.) / np.log(min_iter)
         
         if plot:
-            plt.plot(self.freq_mesh.values(), self.S_grea_reta_w[:, 0].imag, label=str(self.N1))
+            plt.plot(self.freq_mesh.values(), -self.R_grea_reta_w[:, 0].imag, label=str(self.N1))
 
         while ((err > tol and n < max_iter) or n < min_iter):
 
@@ -114,6 +116,8 @@ class NCA_Steady_State_Solver:
                 print(self.N1, err)
             _, self.R_grea_reta = inv_fourier_transform(self.freq_mesh, self.R_grea_reta_w, axis=0)
 
+            # TODO: why is the normalization not converging to 1?
+            # print(2.j * self.R_grea_reta[len(self.time_mesh) // 2, :])
             for k in range(self.D):
                 if active_orb[k]:
                     self.R_grea_reta[k] /= 2.j * self.R_grea_reta[len(self.time_mesh) // 2, k]
@@ -126,7 +130,7 @@ class NCA_Steady_State_Solver:
                 eta_i /= q
             
             if plot:
-                plt.plot(self.freq_mesh.values(), self.S_grea_reta_w[:, 0].imag, label=str(self.N1))
+                plt.plot(self.freq_mesh.values(), -self.R_grea_reta_w[:, 0].imag, label=str(self.N1))
 
         if verbose:
             print('Done.')
@@ -135,7 +139,6 @@ class NCA_Steady_State_Solver:
         if plot:
             plt.legend()
             plt.xlim(-20, 15)
-            plt.show()
             
         if err > tol:
             print(f'WARNING: poor convergence, err={err}')
@@ -158,7 +161,7 @@ class NCA_Steady_State_Solver:
 
         
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False):
-        self.normalize_less()
+        # self.normalize_less()
         n = 0
         err = +np.inf
         
@@ -197,7 +200,6 @@ class NCA_Steady_State_Solver:
         if plot:
             plt.legend()
             plt.xlim(-20, 15)
-            plt.show()
     
         if err > tol:
             print(f'WARNING: poor convergence, err={err}')

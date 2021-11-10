@@ -2,42 +2,58 @@ import toolbox as tb
 import numpy as np
 from .utilities import *
 
-def make_Delta_semicirc(Gamma, D, beta, mu, time_mesh):
-    
-    freq_mesh = time_mesh.adjoint()
-    assert(freq_mesh.xmax >= 10 * D)
-    assert(freq_mesh.xmin <= 0.1 * D)
-    assert(freq_mesh.xmin <= 0.1 / beta)
-    
-    ww = freq_mesh.values()
+
+def make_Delta_semicirc(Gamma, D, E0, beta, Ef, time_mesh):
+
+    big_freq_mesh = time_mesh.adjoint()
+
+    assert big_freq_mesh.xmax >= 10 * D + E0
+    assert big_freq_mesh.delta <= 0.1 * D
+    assert big_freq_mesh.delta <= 0.1 / beta
+
+    ww = big_freq_mesh.values()
     dos = np.zeros(len(ww), dtype=float)
     for k, w in enumerate(ww):
-        if np.abs(w) <= D:
-            dos[k] = np.sqrt(D**2 - w**2) / D**2 # norm = pi/2
+        if np.abs(w - E0) <= D:
+            dos[k] = np.sqrt(D ** 2 - (w - E0) ** 2) / D ** 2  # norm = pi/2
 
-    less = 1j * dos * tb.fermi(ww, mu, beta) * D * Gamma
-    grea = 1j * dos * (tb.fermi(ww, mu, beta) - 1.) * D * Gamma
+    less = 1j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
+    grea = 1j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * D * Gamma
 
-    _, delta_less = inv_fourier_transform(freq_mesh, less)
-    _, delta_grea = inv_fourier_transform(freq_mesh, grea)
-    
+    _, delta_less = inv_fourier_transform(big_freq_mesh, less)
+    _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)
+
     return delta_less, delta_grea
 
 
-def make_Delta_lorentzian(Gamma, D, beta, mu, time_mesh):
-    
-    freq_mesh = time_mesh.adjoint()
-    assert(freq_mesh.xmax >= 10 * D)
-    assert(freq_mesh.xmin <= 0.1 * D)
-    assert(freq_mesh.xmin <= 0.1 / beta)
-    
-    ww = freq_mesh.values()
-    dos = D / (ww**2 + D**2) / np.pi # norm = 1
+def make_Delta_lorentzian(Gamma, D, E0, beta, Ef, time_mesh, W=None, eps=None):
 
-    less = 1j * dos * tb.fermi(ww, mu, beta) * np.pi * D * Gamma / 2.
-    grea = 1j * dos * (tb.fermi(ww, mu, beta) - 1.) * np.pi * D * Gamma / 2.
+    # wmax = 10 * D
+    # dw = min(0.1 * D, 0.1 / beta)
+    # n = max(int(2 * wmax / dw), 10001)
+    # n = max(n, int(time_mesh.xmax * wmax))
+    # big_freq_mesh = Mesh(wmax, n if n % 2 == 1 else n + 1)
 
-    _, delta_less = inv_fourier_transform(freq_mesh, less)
-    _, delta_grea = inv_fourier_transform(freq_mesh, grea)
-    
+    big_freq_mesh = time_mesh.adjoint()
+
+    assert big_freq_mesh.delta <= 0.1 * D
+    assert big_freq_mesh.delta <= 0.1 / beta
+
+    ww = big_freq_mesh.values()
+    dos = D / ((ww - E0) ** 2 + D ** 2) / np.pi  # norm = 1
+
+    if W is not None:
+        if eps is None:
+            eps = W / 100.
+        assert(big_freq_mesh.xmax > W + eps / 2.)
+        window = planck_taper_window(big_freq_mesh, W, eps)
+        dos *= window
+        dos /= np.trapz(dos, dx=big_freq_mesh.delta)
+
+    less = 1j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
+    grea = 1j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * np.pi * D * Gamma
+
+    _, delta_less = inv_fourier_transform(big_freq_mesh, less)
+    _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)
+
     return delta_less, delta_grea

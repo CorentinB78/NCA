@@ -8,9 +8,9 @@ from nca.hybridizations import *
 class HybridizationTest(unittest.TestCase):
 
     def test_semi_circ(self):
-        m = Mesh(100., 10001)
+        m = Mesh(500., 10001)
         Gamma = 3.0
-        dl, dg = make_Delta_semicirc(Gamma, 2.0, 50.0, 0.2, m)
+        dl, dg = make_Delta_semicirc(Gamma, D=2.0, E0=0., beta=5.0, Ef=0.2, time_mesh=m)
 
         mw, dgw = fourier_transform(m, dg)
         mw, dlw = fourier_transform(m, dl)
@@ -21,13 +21,13 @@ class HybridizationTest(unittest.TestCase):
         plt.xlim(-2., 2.)
         plt.show()
 
-        self.assertAlmostEqual(-np.trapz(x=mw.values(), y=dgw - dlw).imag / np.pi, Gamma, 3)
+        self.assertAlmostEqual((dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
 
 
     def test_lorentzian(self):
-        m = Mesh(100., 30001)
+        m = Mesh(500., 10001)
         Gamma = 3.0
-        dl, dg = make_Delta_lorentzian(Gamma, 2.0, 50.0, 0.2, m)
+        dl, dg = make_Delta_lorentzian(Gamma, D=2.0, E0=0., beta=5.0, Ef=0.2, time_mesh=m)
 
         mw, dgw = fourier_transform(m, dg)
         mw, dlw = fourier_transform(m, dl)
@@ -38,7 +38,7 @@ class HybridizationTest(unittest.TestCase):
         plt.xlim(-2., 2.)
         plt.show()
 
-        self.assertAlmostEqual(-np.trapz(x=mw.values(), y=dgw - dlw).imag / np.pi, Gamma, 1)
+        self.assertAlmostEqual((dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
 
 
 if __name__ == '__main__':
