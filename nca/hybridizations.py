@@ -44,8 +44,8 @@ def make_Delta_lorentzian(Gamma, D, E0, beta, Ef, time_mesh, W=None, eps=None):
 
     if W is not None:
         if eps is None:
-            eps = W / 100.
-        assert(big_freq_mesh.xmax > W + eps / 2.)
+            eps = W / 100.0
+        assert big_freq_mesh.xmax > W + eps / 2.0
         window = planck_taper_window(big_freq_mesh, W, eps)
         dos *= window
         dos /= np.trapz(dos, dx=big_freq_mesh.delta)
