@@ -54,7 +54,7 @@ class NCA_Steady_State_Solver:
 
         self.R_grea_w = np.empty((N, self.D), dtype=complex)
         self.R_grea_reta_w = np.empty((N, self.D), dtype=complex)
-        self.R_less_w = np.empty((N, self.D), dtype=complex)
+        self.R_less_w = np.zeros((N, self.D), dtype=complex)
 
         self.S_less_w = np.empty((N, self.D), dtype=complex)
         self.S_grea_w = np.empty((N, self.D), dtype=complex)
@@ -194,6 +194,9 @@ class NCA_Steady_State_Solver:
         Z = 1j * np.mean(
             self.R_less[len(self.time_mesh) // 2], where=(self.H_loc < np.inf)
         )
+        if Z == 0.0:
+            print(self.R_less[len(self.time_mesh) // 2])
+            raise ZeroDivisionError
         self.R_less_w /= Z
         self.R_less /= Z
 
