@@ -153,7 +153,7 @@ class NCA_Steady_State_Solver:
             # print(2.j * self.R_grea_reta[len(self.time_mesh) // 2, :])
             for k in range(self.D):
                 if active_orb[k]:
-                    self.R_grea_reta[k] /= (
+                    self.R_grea_reta[:, k] /= (
                         2.0j * self.R_grea_reta[len(self.time_mesh) // 2, k]
                     )
 
