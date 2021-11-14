@@ -25,22 +25,17 @@ class NCA_Steady_State_Solver:
 
         self.R_less = np.zeros((N, self.D), dtype=complex)
         self.R_grea = np.zeros((N, self.D), dtype=complex)
-        self.R_grea_reta = np.zeros((N, self.D), dtype=complex)
 
         self.S_less = np.zeros((N, self.D), dtype=complex)
         self.S_grea = np.zeros((N, self.D), dtype=complex)
-        self.S_grea_reta = np.zeros((N, self.D), dtype=complex)
 
         ### initialization
         active_orb = self.H_loc < np.inf
         for k, t in enumerate(self.time_mesh.values()):
-            if t >= 0.0:
-                self.R_grea_reta[k, active_orb] = -1j * np.exp(
-                    -1.0j * self.H_loc[active_orb] * t
-                )
-            self.R_less[k, active_orb] = -1j * np.exp(1.0j * self.H_loc[active_orb] * t)
+            self.R_grea[k, active_orb] = -1j * np.exp(-1j * self.H_loc[active_orb] * t)
+            self.R_less[k, active_orb] = -1j * np.exp(1j * self.H_loc[active_orb] * t)
 
-            self.R_grea_reta[k, ~active_orb] = 0.0
+            self.R_grea[k, ~active_orb] = 0.0
             self.R_less[k, ~active_orb] = 0.0
 
         self.freq_mesh = self.time_mesh.adjoint()
@@ -67,23 +62,21 @@ class NCA_Steady_State_Solver:
         return (basis_state // 2 ** orbital) % 2 == 1
 
     def self_energy_grea(self):
-        self.S_grea_reta[:] = 0.0
+        self.S_grea[:] = 0.0
 
         for k in range(self.D):
             for x in range(self.nr_orbitals):
                 if self.is_orb_in_state(x, k):
                     if self.H_loc[k - 2 ** x] < np.inf:
-                        self.S_grea_reta[:, k] += (
-                            1j
-                            * self.delta_grea_dict[x]
-                            * self.R_grea_reta[:, k - 2 ** x]
+                        self.S_grea[:, k] += (
+                            1j * self.delta_grea_dict[x] * self.R_grea[:, k - 2 ** x]
                         )
                 else:
                     if self.H_loc[k + 2 ** x] < np.inf:
-                        self.S_grea_reta[:, k] += (
+                        self.S_grea[:, k] += (
                             -1j
                             * self.delta_less_dict[x][::-1]
-                            * self.R_grea_reta[:, k + 2 ** x]
+                            * self.R_grea[:, k + 2 ** x]
                         )
 
     def self_energy_less(self):
@@ -112,6 +105,7 @@ class NCA_Steady_State_Solver:
         active_orb = self.H_loc < np.inf
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
+        idx0 = len(self.time_mesh) // 2
 
         if plot:
             plt.plot(
@@ -123,8 +117,13 @@ class NCA_Steady_State_Solver:
         while (err > tol and n < max_iter) or n < min_iter:
 
             self.self_energy_grea()
+
+            # temporarly store \tilde S^>(t)
+            self.S_grea_reta_w[:idx0, :] = 0.0
+            self.S_grea_reta_w[idx0:, :] = self.S_grea[idx0:, :]
+            self.S_grea_reta_w[idx0, :] *= 0.5
             _, self.S_grea_reta_w = fourier_transform(
-                self.time_mesh, self.S_grea_reta, axis=0
+                self.time_mesh, self.S_grea_reta_w, axis=0
             )
 
             R_grea_reta_w_prev = self.R_grea_reta_w.copy()
@@ -145,17 +144,13 @@ class NCA_Steady_State_Solver:
             )
             if verbose:
                 print(self.N1, err)
-            _, self.R_grea_reta = inv_fourier_transform(
-                self.freq_mesh, self.R_grea_reta_w, axis=0
+            _, self.R_grea = inv_fourier_transform(
+                self.freq_mesh, 2j * self.R_grea_reta_w.imag, axis=0
             )
 
-            # TODO: why is the normalization not converging to 1?
-            # print(2.j * self.R_grea_reta[len(self.time_mesh) // 2, :])
             for k in range(self.D):
                 if active_orb[k]:
-                    self.R_grea_reta[:, k] /= (
-                        2.0j * self.R_grea_reta[len(self.time_mesh) // 2, k]
-                    )
+                    self.R_grea[:, k] /= 1.0j * self.R_grea[idx0, k]
 
             self.N1 += 1
             n += 1
@@ -183,12 +178,7 @@ class NCA_Steady_State_Solver:
             print(f"WARNING: poor convergence, err={err}")
 
         self.R_grea_w[:] = 2j * self.R_grea_reta_w.imag
-        _, self.R_grea = inv_fourier_transform(self.freq_mesh, self.R_grea_w, axis=0)
-        # self.R_grea.set_from_fourier(self.R_grea_w)
-
         self.S_grea_w[:] = 2j * self.S_grea_reta_w.imag
-        _, self.S_grea = inv_fourier_transform(self.freq_mesh, self.S_grea_w, axis=0)
-        # self.S_grea.set_from_fourier(self.S_grea_w)
 
     def normalize_less(self):
         Z = 1j * np.mean(
