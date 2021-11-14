@@ -23,12 +23,12 @@ class NCA_Steady_State_Solver:
         self.times = self.time_mesh.values()
         N = len(self.time_mesh)
 
-        self.R_less = np.empty((N, self.D), dtype=complex)
-        self.R_grea = np.empty((N, self.D), dtype=complex)
+        self.R_less = np.zeros((N, self.D), dtype=complex)
+        self.R_grea = np.zeros((N, self.D), dtype=complex)
         self.R_grea_reta = np.zeros((N, self.D), dtype=complex)
 
-        self.S_less = np.empty((N, self.D), dtype=complex)
-        self.S_grea = np.empty((N, self.D), dtype=complex)
+        self.S_less = np.zeros((N, self.D), dtype=complex)
+        self.S_grea = np.zeros((N, self.D), dtype=complex)
         self.S_grea_reta = np.zeros((N, self.D), dtype=complex)
 
         ### initialization
@@ -52,13 +52,13 @@ class NCA_Steady_State_Solver:
             assert self.freq_mesh.delta < 0.1 * np.min(diff_H_loc)
             assert self.freq_mesh.xmax > 10 * np.max(diff_H_loc)
 
-        self.R_grea_w = np.empty((N, self.D), dtype=complex)
-        self.R_grea_reta_w = np.empty((N, self.D), dtype=complex)
+        self.R_grea_w = np.zeros((N, self.D), dtype=complex)
+        self.R_grea_reta_w = np.zeros((N, self.D), dtype=complex)
         self.R_less_w = np.zeros((N, self.D), dtype=complex)
 
-        self.S_less_w = np.empty((N, self.D), dtype=complex)
-        self.S_grea_w = np.empty((N, self.D), dtype=complex)
-        self.S_grea_reta_w = np.empty((N, self.D), dtype=complex)
+        self.S_less_w = np.zeros((N, self.D), dtype=complex)
+        self.S_grea_w = np.zeros((N, self.D), dtype=complex)
+        self.S_grea_reta_w = np.zeros((N, self.D), dtype=complex)
 
         self.N1 = 0
         self.N2 = 0
