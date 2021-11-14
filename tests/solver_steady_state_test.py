@@ -71,6 +71,24 @@ class SolverSteadyStateTest(unittest.TestCase):
             atol=1e-2,
         )
 
+        ### normalization tests
+        idx0 = len(S.times) // 2
+        self.assertEqual(S.times[idx0], 0.0)
+
+        for k in range(4):
+            self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
+            self.assertAlmostEqual(
+                np.trapz(S.R_grea_w[:, k], dx=S.freq_mesh.delta) / (2 * np.pi), -1j, 3
+            )
+
+        self.assertAlmostEqual(np.sum(S.R_grea[idx0, :]), -4j)
+        self.assertAlmostEqual(
+            np.trapz(np.sum(S.R_grea_w[:, :], axis=1), dx=S.freq_mesh.delta)
+            / (2 * np.pi),
+            -4j,
+            3,
+        )
+
     def test_orbital_in_state(self):
         H_loc = [0.0, 1.0, 1.0, 3.0]
 
@@ -112,40 +130,39 @@ class SolverSteadyStateTest(unittest.TestCase):
             time_mesh,
         )
 
-        S.R_grea_reta[:, 0] = np.sin(5.0 * times) * np.cos(0.6 * times - 1.0)
-        S.R_grea_reta[:, 1] = np.sin(2.0 * times) * np.cos(0.3 * times - 4.0)
-        S.R_grea_reta[:, 2] = np.sin(7.0 * times) * np.cos(0.2 * times - 3.0)
-        S.R_grea_reta[:, 3] = np.sin(1.0 * times) * np.cos(0.5 * times - 9.0)
+        S.R_grea[:, 0] = np.sin(5.0 * times) * np.cos(0.6 * times - 1.0)
+        S.R_grea[:, 1] = np.sin(2.0 * times) * np.cos(0.3 * times - 4.0)
+        S.R_grea[:, 2] = np.sin(7.0 * times) * np.cos(0.2 * times - 3.0)
+        S.R_grea[:, 3] = np.sin(1.0 * times) * np.cos(0.5 * times - 9.0)
 
         S.self_energy_grea()
 
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
         np.testing.assert_array_almost_equal(
-            S.S_grea_reta[:, 0],
-            -1j * Delta_less_up[::-1] * S.R_grea_reta[:, 1]
-            - 1j * Delta_less_dn[::-1] * S.R_grea_reta[:, 2],
+            S.S_grea[:, 0],
+            -1j * Delta_less_up[::-1] * S.R_grea[:, 1]
+            - 1j * Delta_less_dn[::-1] * S.R_grea[:, 2],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea_reta[:, 1],
-            1j * Delta_grea_up * S.R_grea_reta[:, 0]
-            - 1j * Delta_less_dn[::-1] * S.R_grea_reta[:, 3],
+            S.S_grea[:, 1],
+            1j * Delta_grea_up * S.R_grea[:, 0]
+            - 1j * Delta_less_dn[::-1] * S.R_grea[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea_reta[:, 2],
-            1j * Delta_grea_dn * S.R_grea_reta[:, 0]
-            - 1j * Delta_less_up[::-1] * S.R_grea_reta[:, 3],
+            S.S_grea[:, 2],
+            1j * Delta_grea_dn * S.R_grea[:, 0]
+            - 1j * Delta_less_up[::-1] * S.R_grea[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea_reta[:, 3],
-            1j * Delta_grea_dn * S.R_grea_reta[:, 1]
-            + 1j * Delta_grea_up * S.R_grea_reta[:, 2],
+            S.S_grea[:, 3],
+            1j * Delta_grea_dn * S.R_grea[:, 1] + 1j * Delta_grea_up * S.R_grea[:, 2],
             10,
         )
 
