@@ -4,6 +4,19 @@ import toolbox as tb
 from matplotlib import pyplot as plt
 
 
+class MeshTest(unittest.TestCase):
+    def test_pt_on_value(self):
+        x = 67.34
+        m = Mesh(100.0, 101, pt_on_value=x)
+
+        idx = np.argmin(np.abs(m.values() - x))
+        self.assertAlmostEqual(x, m.values()[idx])
+
+        val_unmod = np.linspace(-100.0, 100.0, 101)
+        idx = np.argmin(np.abs(val_unmod - x))
+        self.assertNotEqual(x, val_unmod[idx])
+
+
 class FourierTest(unittest.TestCase):
     def testA(self):
         m = Mesh(3.0, 101)

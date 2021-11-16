@@ -3,14 +3,26 @@ from numpy import fft
 
 
 class Mesh:
-    def __init__(self, xmax, nr_samples):
+    def __init__(self, xmax, nr_samples, pt_on_value=False):
         if nr_samples % 2 != 1:
             raise ValueError
+
+        if pt_on_value > 0.0:
+            delta = 2 * xmax / (nr_samples - 1)
+            x_next = delta * (pt_on_value // delta + 1)
+            xmax *= pt_on_value / x_next
+            if pt_on_value > xmax:
+                raise ValueError("`pt_on_value` cannot be reached. Increase xmax.")
+
         self.xmin = -xmax
         self.xmax = xmax
         self.nr_samples = nr_samples
         self.delta = (xmax - self.xmin) / (nr_samples - 1)
         self.data = None
+
+        self.pt_on_value = pt_on_value
+        self.idx_pt_on_value = pt_on_value / self.delta
+        self.pt_on_value_adj = False
 
     def values(self):
         if self.data is None:
@@ -18,10 +30,16 @@ class Mesh:
         return self.data
 
     def adjoint(self):
-        return Mesh(
+        out = Mesh(
             2 * np.pi * (self.nr_samples - 1) / (2 * self.delta * self.nr_samples),
             self.nr_samples,
         )
+
+        out.pt_on_value = self.pt_on_value
+        out.idx_pt_on_value = self.idx_pt_on_value
+        out.pt_on_value_adj = not self.pt_on_value_adj
+
+        return out
 
     def __len__(self):
         return self.nr_samples
