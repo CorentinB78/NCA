@@ -9,9 +9,23 @@ class SolverImagTime:
     def __init__(self, beta, H_loc, delta_dict, time_mesh):
 
         self.beta = beta
-        self.H_loc = np.asarray(H_loc)
+        if (time_mesh.pt_on_value_adj) or (time_mesh.pt_on_value != self.beta):
+            print(time_mesh.pt_on_value - self.beta)
+            raise ValueError
+
+        self.time_mesh = time_mesh
+        self.times = self.time_mesh.values()
+        N = len(self.time_mesh)
+
+        self.H_loc = np.asarray(H_loc).copy()
         self.energy_shift = 0.0
         self.D = len(self.H_loc)
+
+        min_en_threshold = -np.log(1e-10) / self.time_mesh.xmax  # > 0
+        min_energy = np.min(self.H_loc.real)
+        if min_energy < min_en_threshold:
+            self.H_loc += min_en_threshold - min_energy
+            self.energy_shift += min_en_threshold - min_energy
 
         self.nr_orbitals = int(np.log2(self.D))
         if 2 ** self.nr_orbitals != self.D:
@@ -19,20 +33,13 @@ class SolverImagTime:
 
         self.delta_dict = delta_dict
 
-        if (not time_mesh.pt_on_value_adj) or (time_mesh.pt_on_value != self.beta):
-            raise ValueError
-
-        self.time_mesh = time_mesh
-        self.times = self.time_mesh.values()
-        N = len(self.time_mesh)
-
         self.R_tau = np.zeros((N, self.D), dtype=complex)
         self.S_tau = np.zeros((N, self.D), dtype=complex)
 
         ### initialization
         active_orb = self.H_loc < np.inf
         for k, tau in enumerate(self.time_mesh.values()):
-            self.R_tau[k, active_orb] = -np.exp(-self.H_loc[active_orb] * tau)
+            self.R_tau[k, active_orb] = -np.exp(-np.abs(self.H_loc[active_orb]) * tau)
 
         self.freq_mesh = self.time_mesh.adjoint()
         self.freqs = self.freq_mesh.values()
@@ -66,7 +73,7 @@ class SolverImagTime:
         err = +np.inf
         active_orb = self.H_loc < np.inf
         idx0 = len(self.time_mesh) // 2
-        max_en_threshold = -np.log(1e-10) / self.time_mesh.xmax
+        min_en_threshold = -np.log(1e-10) / self.time_mesh.xmax  # > 0
 
         if plot:
             plt.plot(
@@ -88,15 +95,15 @@ class SolverImagTime:
             R_iw_prev = self.R_iw.copy()
             self.R_iw[:, ~active_orb] = 0.0
             self.R_iw[:, active_orb] = (
-                -self.H_loc[None, active_orb]
-                - self.energy_shift
-                - self.S_iw[:, active_orb]
+                self.H_loc[None, active_orb] + self.S_iw[:, active_orb]
             )
-            max_energy = np.max(self.R_iw[:, active_orb].real)
-            if max_energy > max_en_threshold:
-                self.R_iw[:, active_orb] -= max_energy
-                self.energy_shift += max_energy
+            min_energy = np.min(self.R_iw[:, active_orb].real)
+            if min_energy <= min_en_threshold:
+                self.R_iw[:, active_orb] += min_en_threshold - min_energy
+                self.H_loc += min_en_threshold - min_energy
+                self.energy_shift += min_en_threshold - min_energy
 
+            self.R_iw[:, active_orb] *= -1
             self.R_iw[:, active_orb] += 1j * self.freq_mesh.values()[:, None]
             self.R_iw[:, active_orb] = 1.0 / self.R_iw[:, active_orb]
 
@@ -122,7 +129,7 @@ class SolverImagTime:
             if plot:
                 plt.plot(
                     self.freq_mesh.values(),
-                    -self.R_iw[:, 0].real,
+                    -self.R_iw[:, 0].imag,
                     label=str(self.N_loops),
                 )
 
@@ -146,7 +153,7 @@ class SolverImagTime:
     def get_Z_ratio(self):
         """Return Z / Z_bath"""
         idx = self.time_mesh.idx_pt_on_value
-        return -np.sum(self.get_unshifted_R_tau()[idx, :])
+        return -np.sum(self.R_tau[idx, :].real * np.exp(self.beta * self.energy_shift))
 
     def get_density_matrix(self):
         idx = self.time_mesh.idx_pt_on_value
@@ -165,7 +172,10 @@ class SolverImagTime:
 
         for state in range(self.D):
             if not self.is_orb_in_state(orb, state):
-                G_tau += R_tau_cut[::-1, state] * R_tau_cut[:, state + 2 ** orb]
+                G_tau += np.real(
+                    R_tau_cut[::-1, state] * R_tau_cut[:, state + 2 ** orb]
+                )
 
-        G_tau /= -self.get_Z_ratio()
-        return G_tau
+        idx = self.time_mesh.idx_pt_on_value
+        G_tau /= np.sum(self.R_tau[idx, :].real)
+        return times_cut, G_tau

@@ -21,7 +21,8 @@ class Mesh:
         self.data = None
 
         self.pt_on_value = pt_on_value
-        self.idx_pt_on_value = pt_on_value / self.delta
+        # TODO: test pt_on_value
+        self.idx_pt_on_value = int((pt_on_value - self.xmin) / self.delta)
         self.pt_on_value_adj = False
 
     def values(self):
