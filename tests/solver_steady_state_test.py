@@ -202,6 +202,58 @@ class SolverSteadyStateTest(unittest.TestCase):
             10,
         )
 
+    def test_values(self):
+        beta = 1.0
+        mu = 0.5
+        U = 1.0
+        D = 10.0
+        Gamma = 2.0
+
+        time_mesh = Mesh(1000.0, 100001)
+
+        ### basis: 0, up, dn, updn
+        H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
+
+        delta_less, delta_grea = make_Delta_semicirc(
+            Gamma, D, 0.0, beta, 0.0, time_mesh
+        )
+
+        S = NCA_Steady_State_Solver(
+            H_loc,
+            {0: delta_less, 1: delta_less},
+            {0: delta_grea, 1: delta_grea},
+            time_mesh,
+        )
+
+        S.greater_loop(tol=1e-5, verbose=True)
+        S.lesser_loop(tol=1e-5, verbose=True)
+
+        times_ref = np.linspace(-5.0, 5.0, 11)
+
+        ### data from Renaud Garioud (Nov 2021)
+        G_grea_ref = 0.5 * np.array(
+            [
+                3.81553968e-04 - 1.99104875e-04j,
+                2.12026824e-03 - 1.81560990e-03j,
+                9.81523185e-03 - 9.98405419e-03j,
+                4.08214582e-02 - 4.67503833e-02j,
+                1.62294099e-01 - 1.96646491e-01j,
+                -3.52101334e-12 - 9.99328108e-01j,
+                -1.62294099e-01 - 1.96646491e-01j,
+                -4.08214582e-02 - 4.67503833e-02j,
+                -9.81523185e-03 - 9.98405419e-03j,
+                -2.12026824e-03 - 1.81560990e-03j,
+                -3.81553968e-04 - 1.99104875e-04j,
+            ]
+        )
+        G_less_ref = np.conj(G_grea_ref)
+
+        G_grea = np.interp(times_ref, S.times, S.get_G_grea(0))
+        np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
+
+        G_less = np.interp(times_ref, S.times, S.get_G_less(0))
+        np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
