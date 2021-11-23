@@ -17,8 +17,8 @@ def make_Delta_semicirc(Gamma, D, E0, beta, Ef, time_mesh):
         if np.abs(w - E0) <= D:
             dos[k] = np.sqrt(D ** 2 - (w - E0) ** 2) / D ** 2  # norm = pi/2
 
-    less = 1j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
-    grea = 1j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * D * Gamma
+    less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
+    grea = 2j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * D * Gamma
 
     _, delta_less = inv_fourier_transform(big_freq_mesh, less)
     _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)
@@ -50,8 +50,8 @@ def make_Delta_lorentzian(Gamma, D, E0, beta, Ef, time_mesh, W=None, eps=None):
         dos *= window
         dos /= np.trapz(dos, dx=big_freq_mesh.delta)
 
-    less = 1j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
-    grea = 1j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * np.pi * D * Gamma
+    less = 2j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
+    grea = 2j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * np.pi * D * Gamma
 
     _, delta_less = inv_fourier_transform(big_freq_mesh, less)
     _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)

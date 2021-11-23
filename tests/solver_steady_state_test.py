@@ -78,7 +78,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         for k in range(4):
             self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
             self.assertAlmostEqual(
-                np.trapz(S.R_grea_w[:, k], dx=S.freq_mesh.delta) / (2 * np.pi), -1j, 3
+                np.trapz(S.R_grea_w[:, k], dx=S.freq_mesh.delta) / (2 * np.pi), -1j, 2
             )
 
         self.assertAlmostEqual(np.sum(S.R_grea[idx0, :]), -4j)
@@ -86,7 +86,7 @@ class SolverSteadyStateTest(unittest.TestCase):
             np.trapz(np.sum(S.R_grea_w[:, :], axis=1), dx=S.freq_mesh.delta)
             / (2 * np.pi),
             -4j,
-            3,
+            2,
         )
 
     def test_orbital_in_state(self):
@@ -207,7 +207,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         mu = 0.5
         U = 1.0
         D = 10.0
-        Gamma = 2.0
+        Gamma = 1.0
 
         time_mesh = Mesh(1000.0, 100001)
 

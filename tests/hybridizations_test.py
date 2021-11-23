@@ -22,7 +22,11 @@ class HybridizationTest(unittest.TestCase):
         plt.xlim(-2.0, 2.0)
         plt.show()
 
-        self.assertAlmostEqual((dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
+        dgw_0 = np.trapz(dg, dx=m.delta)
+        dlw_0 = np.trapz(dl, dx=m.delta)
+
+        self.assertAlmostEqual(0.5 * (dgw_0 - dlw_0), -1j * Gamma, 3)
+        self.assertAlmostEqual(0.5 * (dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
 
     def test_lorentzian(self):
         m = Mesh(500.0, 10001)
@@ -40,7 +44,11 @@ class HybridizationTest(unittest.TestCase):
         plt.xlim(-2.0, 2.0)
         plt.show()
 
-        self.assertAlmostEqual((dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
+        dgw_0 = np.trapz(dg, dx=m.delta)
+        dlw_0 = np.trapz(dl, dx=m.delta)
+
+        self.assertAlmostEqual(0.5 * (dgw_0 - dlw_0), -1j * Gamma, 3)
+        self.assertAlmostEqual(0.5 * (dgw - dlw)[len(mw) // 2], -1j * Gamma, 3)
 
 
 if __name__ == "__main__":
