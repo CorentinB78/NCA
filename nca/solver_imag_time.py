@@ -5,6 +5,9 @@ from matplotlib import pyplot as plt
 import toolbox as tb
 
 
+### TODO: test against real time
+### TODO: restrict real quantities to float
+### TODO: write notes on implementation (energy shift, def of R(tau > beta) , etc)
 class SolverImagTime:
     def __init__(self, beta, H_loc, delta_dict, time_mesh):
 
@@ -24,7 +27,6 @@ class SolverImagTime:
         min_en_threshold = -np.log(1e-10) / self.time_mesh.xmax  # > 0
         min_energy = np.min(self.H_loc.real)
         if min_energy < min_en_threshold:
-            self.H_loc += min_en_threshold - min_energy
             self.energy_shift += min_en_threshold - min_energy
 
         self.nr_orbitals = int(np.log2(self.D))
@@ -39,7 +41,9 @@ class SolverImagTime:
         ### initialization
         active_orb = self.H_loc < np.inf
         for k, tau in enumerate(self.time_mesh.values()):
-            self.R_tau[k, active_orb] = -np.exp(-np.abs(self.H_loc[active_orb]) * tau)
+            self.R_tau[k, active_orb] = -np.exp(
+                -(self.H_loc[active_orb] + self.energy_shift) * np.abs(tau)
+            )
 
         self.freq_mesh = self.time_mesh.adjoint()
         self.freqs = self.freq_mesh.values()
@@ -54,18 +58,22 @@ class SolverImagTime:
 
     def self_energy(self):
         self.S_tau[:] = 0.0
+        idx0 = len(self.time_mesh) // 2
+        idxb = self.time_mesh.idx_pt_on_value
 
         for k in range(self.D):
             for x in range(self.nr_orbitals):
                 if self.is_orb_in_state(x, k):
                     if self.H_loc[k - 2 ** x] < np.inf:
-                        self.S_tau[:, k] += (
-                            -self.delta_dict[x] * self.R_tau[:, k - 2 ** x]
+                        self.S_tau[idx0 : idxb + 1, k] += (
+                            -self.delta_dict[x][idx0 : idxb + 1]
+                            * self.R_tau[idx0 : idxb + 1, k - 2 ** x]
                         )
                 else:
                     if self.H_loc[k + 2 ** x] < np.inf:
-                        self.S_tau[:, k] += (
-                            self.delta_dict[x][::-1] * self.R_tau[:, k + 2 ** x]
+                        self.S_tau[idx0 : idxb + 1, k] += (
+                            -self.delta_dict[x][idxb : idx0 - 1 : -1]
+                            * self.R_tau[idx0 : idxb + 1, k + 2 ** x]
                         )
 
     def solve(self, tol=1e-8, min_iter=5, max_iter=100, plot=False, verbose=False):
@@ -86,22 +94,31 @@ class SolverImagTime:
 
             self.self_energy()
 
-            # temporarly store \tilde S^>(t)
-            self.S_iw[:idx0, :] = 0.0
-            self.S_iw[idx0:, :] = self.S_tau[idx0:, :]
-            self.S_iw[idx0, :] *= 0.5
-            _, self.S_iw = fourier_transform(self.time_mesh, self.S_iw, axis=0)
+            _, self.S_iw = fourier_transform(self.time_mesh, self.S_tau, axis=0)
 
             R_iw_prev = self.R_iw.copy()
             self.R_iw[:, ~active_orb] = 0.0
             self.R_iw[:, active_orb] = (
-                self.H_loc[None, active_orb] + self.S_iw[:, active_orb]
+                self.H_loc[None, active_orb]
+                + self.S_iw[:, active_orb]
+                + self.energy_shift
             )
+
             min_energy = np.min(self.R_iw[:, active_orb].real)
             if min_energy <= min_en_threshold:
-                self.R_iw[:, active_orb] += min_en_threshold - min_energy
-                self.H_loc += min_en_threshold - min_energy
                 self.energy_shift += min_en_threshold - min_energy
+                self.S_tau[:, active_orb] *= np.exp(
+                    (min_energy - min_en_threshold) * self.time_mesh.values()[:, None]
+                )
+
+                ### redo with updated shift
+                _, self.S_iw = fourier_transform(self.time_mesh, self.S_tau, axis=0)
+
+                self.R_iw[:, active_orb] = (
+                    self.H_loc[None, active_orb]
+                    + self.S_iw[:, active_orb]
+                    + self.energy_shift
+                )
 
             self.R_iw[:, active_orb] *= -1
             self.R_iw[:, active_orb] += 1j * self.freq_mesh.values()[:, None]
@@ -129,7 +146,7 @@ class SolverImagTime:
             if plot:
                 plt.plot(
                     self.freq_mesh.values(),
-                    -self.R_iw[:, 0].imag,
+                    -self.R_iw[:, 0].real,
                     label=str(self.N_loops),
                 )
 

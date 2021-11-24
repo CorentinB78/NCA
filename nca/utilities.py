@@ -1,5 +1,7 @@
 import numpy as np
 from numpy import fft
+from scipy import integrate
+import toolbox as tb
 
 
 class Mesh:
@@ -28,6 +30,7 @@ class Mesh:
     def values(self):
         if self.data is None:
             self.data = np.linspace(self.xmin, self.xmax, self.nr_samples)
+            self.data[self.nr_samples // 2] = 0.0  # enforce exact zero
         return self.data
 
     def adjoint(self):
@@ -80,3 +83,22 @@ def planck_taper_window(mesh, W, eps):
         else:
             out[k] = 1.0
     return out
+
+
+def gf_tau_from_dos(taus, beta, omegas, dos):
+    delta = omegas[1] - omegas[0]
+
+    f = np.empty((len(taus), len(dos)), dtype=float)
+
+    for k, tau in enumerate(taus):
+        if tau < 0:
+            f[k, :] = 0.0
+        elif tau < beta / 2.0:
+            f[k, :] = dos * tb.fermi(-omegas, 0.0, beta) * np.exp(-omegas * tau)
+        elif tau <= beta:
+            f[k, :] = dos * tb.fermi(omegas, 0.0, beta) * np.exp(omegas * (beta - tau))
+        else:
+            f[k, :] = 0.0
+
+    ### TODO: optimize this: avoid useless integrations
+    return -integrate.simpson(f, axis=1, dx=delta)

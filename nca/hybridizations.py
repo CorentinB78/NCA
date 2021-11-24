@@ -3,6 +3,19 @@ import numpy as np
 from .utilities import *
 
 
+def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
+
+    omegas = np.linspace(-D, D, nr_points)
+
+    dos = np.sqrt(1.0 - (omegas / D) ** 2)
+    dos *= Gamma / np.pi
+    omegas += E0
+
+    delta = gf_tau_from_dos(time_mesh.values(), beta, omegas, dos)
+
+    return delta
+
+
 def make_Delta_semicirc(Gamma, D, E0, beta, Ef, time_mesh):
 
     big_freq_mesh = time_mesh.adjoint()
