@@ -255,5 +255,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
 
 
+# TODO: add comparison with imaginary times
+
 if __name__ == "__main__":
     unittest.main()

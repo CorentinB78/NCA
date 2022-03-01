@@ -43,9 +43,9 @@ class NCA_Steady_State_Solver:
 
         diff_H_loc = np.diff(np.unique(self.H_loc))
         diff_H_loc = diff_H_loc[np.isfinite(diff_H_loc)]
-        if len(diff_H_loc) > 0:
-            assert self.freq_mesh.delta < 0.1 * np.min(diff_H_loc)
-            assert self.freq_mesh.xmax > 10 * np.max(diff_H_loc)
+        # if len(diff_H_loc) > 0:
+        #     assert self.freq_mesh.delta < 0.1 * np.min(diff_H_loc)
+        #     assert self.freq_mesh.xmax > 10 * np.max(diff_H_loc)
 
         self.R_grea_w = np.zeros((N, self.D), dtype=complex)
         self.R_grea_reta_w = np.zeros((N, self.D), dtype=complex)
@@ -125,6 +125,8 @@ class NCA_Steady_State_Solver:
             _, self.S_grea_reta_w = fourier_transform(
                 self.time_mesh, self.S_grea_reta_w, axis=0
             )
+
+            # self.S_grea_reta_w[:] -= self.S_grea_reta_w[0, :]  # vanish at inf freq
 
             R_grea_reta_w_prev = self.R_grea_reta_w.copy()
             self.R_grea_reta_w[:, ~active_orb] = 0.0
