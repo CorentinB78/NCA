@@ -28,15 +28,20 @@ class SolverSteadyStateTest(unittest.TestCase):
         ### Hybridization
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
 
-        S = NCA_Steady_State_Solver(
-            H_loc, {0: delta_less, 1: delta_less}, {0: delta_grea, 1: delta_grea}, mesh
-        )
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, delta_grea, delta_less)
+        fock.add_bath(1, delta_grea, delta_less)
+        hybs = fock.generate_hybridizations()
+
+        print(fock.basis())
+
+        S = NCA_Steady_State_Solver(H_loc, mesh, hybs)
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(plot=False, verbose=True)
 
-        G_grea = S.get_G_grea(0)
-        G_less = S.get_G_less(0)
+        G_grea = fock.get_G_grea(0, S)
+        G_less = fock.get_G_less(0, S)
         # dos = 1j * (G_grea - G_less) / (2 * np.pi)
 
         # G_grea = gf.GfReTime(mesh=time_mesh, data=G_grea)
@@ -90,29 +95,23 @@ class SolverSteadyStateTest(unittest.TestCase):
         )
 
     def test_orbital_in_state(self):
-        H_loc = [0.0, 1.0, 1.0, 3.0]
 
-        time_mesh = Mesh(10.0, 101)
-        Delta = np.empty(101)
-
-        S = NCA_Steady_State_Solver(
-            H_loc,
-            {0: Delta, 1: Delta},
-            {0: Delta, 1: Delta},
-            time_mesh,
-        )
+        fock = FermionicFockSpace(["up", "dn"])
 
         # orbitals: 0 = up, 1 = down,
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
-        self.assertEqual(S.is_orb_in_state(0, 0), False)
-        self.assertEqual(S.is_orb_in_state(1, 0), False)
-        self.assertEqual(S.is_orb_in_state(0, 1), True)
-        self.assertEqual(S.is_orb_in_state(1, 1), False)
-        self.assertEqual(S.is_orb_in_state(0, 2), False)
-        self.assertEqual(S.is_orb_in_state(1, 2), True)
-        self.assertEqual(S.is_orb_in_state(0, 3), True)
-        self.assertEqual(S.is_orb_in_state(1, 3), True)
+        self.assertEqual(fock.is_orb_in_state(0, 0), False)
+        self.assertEqual(fock.is_orb_in_state(1, 0), False)
+        self.assertEqual(fock.is_orb_in_state(0, 1), True)
+        self.assertEqual(fock.is_orb_in_state(1, 1), False)
+        self.assertEqual(fock.is_orb_in_state(0, 2), False)
+        self.assertEqual(fock.is_orb_in_state(1, 2), True)
+        self.assertEqual(fock.is_orb_in_state(0, 3), True)
+        self.assertEqual(fock.is_orb_in_state(1, 3), True)
+
+        np.testing.assert_array_equal(fock.states_containing(0), ([1, 3], [0, 2]))
+        np.testing.assert_array_equal(fock.states_containing(1), ([2, 3], [0, 1]))
 
     def test_self_energy(self):
         H_loc = [0.0, 1.0, 1.0, 3.0]
@@ -123,12 +122,12 @@ class SolverSteadyStateTest(unittest.TestCase):
         Delta_less_dn = np.cos(5.0 * times) * np.sin(0.6 * times - 1.0)
         Delta_grea_dn = np.cos(6.0 * times) * np.sin(0.5 * times + 3.0)
 
-        S = NCA_Steady_State_Solver(
-            H_loc,
-            {0: Delta_less_up, 1: Delta_less_dn},
-            {0: Delta_grea_up, 1: Delta_grea_dn},
-            time_mesh,
-        )
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, Delta_grea_up, Delta_less_up)
+        fock.add_bath(1, Delta_grea_dn, Delta_less_dn)
+        hybs = fock.generate_hybridizations()
+
+        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs)
 
         S.R_grea[:, 0] = np.sin(5.0 * times) * np.cos(0.6 * times - 1.0)
         S.R_grea[:, 1] = np.sin(2.0 * times) * np.cos(0.3 * times - 4.0)
@@ -141,22 +140,22 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         np.testing.assert_array_almost_equal(
             S.S_grea[:, 0],
-            -1j * Delta_less_up[::-1] * S.R_grea[:, 1]
-            - 1j * Delta_less_dn[::-1] * S.R_grea[:, 2],
+            1j * np.conj(Delta_less_up) * S.R_grea[:, 1]
+            + 1j * np.conj(Delta_less_dn) * S.R_grea[:, 2],
             10,
         )
 
         np.testing.assert_array_almost_equal(
             S.S_grea[:, 1],
             1j * Delta_grea_up * S.R_grea[:, 0]
-            - 1j * Delta_less_dn[::-1] * S.R_grea[:, 3],
+            + 1j * np.conj(Delta_less_dn) * S.R_grea[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
             S.S_grea[:, 2],
             1j * Delta_grea_dn * S.R_grea[:, 0]
-            - 1j * Delta_less_up[::-1] * S.R_grea[:, 3],
+            + 1j * np.conj(Delta_less_up) * S.R_grea[:, 3],
             10,
         )
 
@@ -177,22 +176,22 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         np.testing.assert_array_almost_equal(
             S.S_less[:, 0],
-            1j * Delta_grea_up[::-1] * S.R_less[:, 1]
-            + 1j * Delta_grea_dn[::-1] * S.R_less[:, 2],
+            -1j * np.conj(Delta_grea_up) * S.R_less[:, 1]
+            - 1j * np.conj(Delta_grea_dn) * S.R_less[:, 2],
             10,
         )
 
         np.testing.assert_array_almost_equal(
             S.S_less[:, 1],
             -1j * Delta_less_up * S.R_less[:, 0]
-            + 1j * Delta_grea_dn[::-1] * S.R_less[:, 3],
+            - 1j * np.conj(Delta_grea_dn) * S.R_less[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
             S.S_less[:, 2],
             -1j * Delta_less_dn * S.R_less[:, 0]
-            + 1j * Delta_grea_up[::-1] * S.R_less[:, 3],
+            - 1j * np.conj(Delta_grea_up) * S.R_less[:, 3],
             10,
         )
 
@@ -218,12 +217,12 @@ class SolverSteadyStateTest(unittest.TestCase):
             Gamma, D, 0.0, beta, 0.0, time_mesh
         )
 
-        S = NCA_Steady_State_Solver(
-            H_loc,
-            {0: delta_less, 1: delta_less},
-            {0: delta_grea, 1: delta_grea},
-            time_mesh,
-        )
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, delta_grea, delta_less)
+        fock.add_bath(1, delta_grea, delta_less)
+        hybs = fock.generate_hybridizations()
+
+        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs)
 
         S.greater_loop(tol=1e-5, verbose=True)
         S.lesser_loop(tol=1e-5, verbose=True)
@@ -248,10 +247,10 @@ class SolverSteadyStateTest(unittest.TestCase):
         )
         G_less_ref = np.conj(G_grea_ref)
 
-        G_grea = np.interp(times_ref, S.times, S.get_G_grea(0))
+        G_grea = np.interp(times_ref, S.times, fock.get_G_grea(0, S))
         np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
 
-        G_less = np.interp(times_ref, S.times, S.get_G_less(0))
+        G_less = np.interp(times_ref, S.times, fock.get_G_less(0, S))
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
 
 
