@@ -38,7 +38,8 @@ class SolverSteadyStateTest(unittest.TestCase):
         S = NCA_Steady_State_Solver(H_loc, mesh, hybs)
 
         S.greater_loop(plot=False, verbose=True)
-        S.lesser_loop(plot=False, verbose=True)
+        S.lesser_loop(plot=True, verbose=True, max_iter=20)
+        plt.show()
 
         G_grea = fock.get_G_grea(0, S)
         G_less = fock.get_G_less(0, S)
