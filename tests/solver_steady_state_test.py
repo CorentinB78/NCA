@@ -5,6 +5,7 @@ from numpy.testing._private.utils import assert_equal
 from nca.utilities import *
 from nca.hybridizations import *
 from nca.solver_steady_state import *
+from nca.solver_steady_state_dyson import *
 
 
 class SolverSteadyStateTest(unittest.TestCase):
@@ -226,6 +227,69 @@ class SolverSteadyStateTest(unittest.TestCase):
         S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs)
 
         S.greater_loop(tol=1e-5, verbose=True)
+        S.lesser_loop(tol=1e-5, verbose=True)
+
+        times_ref = np.linspace(-5.0, 5.0, 11)
+
+        ### data from Renaud Garioud (Nov 2021)
+        G_grea_ref = 0.5 * np.array(
+            [
+                3.81553968e-04 - 1.99104875e-04j,
+                2.12026824e-03 - 1.81560990e-03j,
+                9.81523185e-03 - 9.98405419e-03j,
+                4.08214582e-02 - 4.67503833e-02j,
+                1.62294099e-01 - 1.96646491e-01j,
+                -3.52101334e-12 - 9.99328108e-01j,
+                -1.62294099e-01 - 1.96646491e-01j,
+                -4.08214582e-02 - 4.67503833e-02j,
+                -9.81523185e-03 - 9.98405419e-03j,
+                -2.12026824e-03 - 1.81560990e-03j,
+                -3.81553968e-04 - 1.99104875e-04j,
+            ]
+        )
+        G_less_ref = np.conj(G_grea_ref)
+
+        G_grea = np.interp(times_ref, S.times, fock.get_G_grea(0, S))
+        np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
+
+        G_less = np.interp(times_ref, S.times, fock.get_G_less(0, S))
+        np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
+
+
+class SolverSteadyStateDysonTest(unittest.TestCase):
+    def test_values(self):
+        beta = 1.0
+        mu = 0.5
+        U = 1.0
+        D = 10.0
+        Gamma = 1.0
+
+        time_mesh = Mesh(1000.0, 100001)
+
+        ### basis: 0, up, dn, updn
+        H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
+        decay_t = time_mesh.xmax / 4.0
+        R0 = (
+            -1j
+            * np.exp(-1j * time_mesh.values()[:, None] * H_loc[None, :])
+            * np.exp(-np.abs(time_mesh.values()[:, None]) / decay_t)
+        )
+
+        delta_less, delta_grea = make_Delta_semicirc(
+            Gamma, D, 0.0, beta, 0.0, time_mesh
+        )
+
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, delta_grea, delta_less)
+        fock.add_bath(1, delta_grea, delta_less)
+        hybs = fock.generate_hybridizations()
+
+        S = NCA_Steady_State_Solver_Dyson(R0, R0, time_mesh, hybs)
+
+        S.greater_loop(tol=1e-5, verbose=True, plot=False)
+        plt.plot(S.times, S.R_grea[:, 2].real)
+        plt.plot(S.times, S.R_grea[:, 2].imag)
+        plt.show()
         S.lesser_loop(tol=1e-5, verbose=True)
 
         times_ref = np.linspace(-5.0, 5.0, 11)
