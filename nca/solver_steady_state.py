@@ -1,10 +1,7 @@
 import numpy as np
-import itertools
+from matplotlib import pyplot as plt
 from .utilities import *
 from .fixed_point_loop_solver import fixed_point_loop
-
-import matplotlib
-from matplotlib import pyplot as plt
 
 
 class NCA_Steady_State_Solver:
@@ -56,12 +53,12 @@ class NCA_Steady_State_Solver:
         self.freqs = self.freq_mesh.values()
 
         self.R_grea_w = np.zeros((N, self.D), dtype=complex)
-        self.R_grea_reta_w = np.zeros((N, self.D), dtype=complex)
+        self.R_reta_w = np.zeros((N, self.D), dtype=complex)
         self.R_less_w = np.zeros((N, self.D), dtype=complex)
 
         self.S_less_w = np.zeros((N, self.D), dtype=complex)
         self.S_grea_w = np.zeros((N, self.D), dtype=complex)
-        self.S_grea_reta_w = np.zeros((N, self.D), dtype=complex)
+        self.S_reta_w = np.zeros((N, self.D), dtype=complex)
 
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
@@ -70,7 +67,7 @@ class NCA_Steady_State_Solver:
     def go_to_times_grea(self, states):
         """\tilde R^>(w) ---> R^>(t)"""
         _, self.R_grea[:, states] = inv_fourier_transform(
-            self.freq_mesh, 2j * self.R_grea_reta_w[:, states].imag, axis=0
+            self.freq_mesh, 2j * self.R_reta_w[:, states].imag, axis=0
         )
 
     def normalize_grea(self, states):
@@ -94,36 +91,34 @@ class NCA_Steady_State_Solver:
     def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
         idx0 = len(self.time_mesh) // 2
-        self.S_grea_reta_w[:idx0, states] = 0.0
-        self.S_grea_reta_w[idx0:, states] = self.S_grea[idx0:, states]
-        self.S_grea_reta_w[idx0, states] *= 0.5
-        _, self.S_grea_reta_w[:, states] = fourier_transform(
-            self.time_mesh, self.S_grea_reta_w[:, states], axis=0
+        self.S_reta_w[:idx0, states] = 0.0
+        self.S_reta_w[idx0:, states] = self.S_grea[idx0:, states]
+        self.S_reta_w[idx0, states] *= 0.5
+        _, self.S_reta_w[:, states] = fourier_transform(
+            self.time_mesh, self.S_reta_w[:, states], axis=0
         )
 
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
         if self.H_loc is None:
-            self.R_grea_reta_w[:, states] = (
-                1.0
-                - self.R0_reta_w[:, states] * self.S_grea_reta_w[:, states]
-                + 1.0j * eta
+            self.R_reta_w[:, states] = (
+                1.0 - self.R0_reta_w[:, states] * self.S_reta_w[:, states] + 1.0j * eta
             )
-            if not np.all(np.isfinite(self.R_grea_reta_w[:, states])):
+            if not np.all(np.isfinite(self.R_reta_w[:, states])):
                 raise ZeroDivisionError
-            self.R_grea_reta_w[:, states] = (
-                self.R0_reta_w[:, states] / self.R_grea_reta_w[:, states]
+            self.R_reta_w[:, states] = (
+                self.R0_reta_w[:, states] / self.R_reta_w[:, states]
             )
         else:
-            self.R_grea_reta_w[:, states] = (
+            self.R_reta_w[:, states] = (
                 self.freq_mesh.values()[:, None]
                 - self.H_loc[states]
-                - self.S_grea_reta_w[:, states]
+                - self.S_reta_w[:, states]
                 + 1.0j * eta
             )
-            if not np.all(np.isfinite(self.R_grea_reta_w[:, states])):
+            if not np.all(np.isfinite(self.R_reta_w[:, states])):
                 raise ZeroDivisionError
-            self.R_grea_reta_w[:, states] = 1.0 / self.R_grea_reta_w[:, states]
+            self.R_reta_w[:, states] = 1.0 / self.R_reta_w[:, states]
 
     def initialize_grea(self, eta=0.0):
         even = self.is_even_state
@@ -139,16 +134,16 @@ class NCA_Steady_State_Solver:
         delta_magn = np.sqrt(delta_magn)
 
         if self.H_loc is None:
-            self.R_grea_reta_w[:, even] = self.R0_reta_w[:, even] / (
+            self.R_reta_w[:, even] = self.R0_reta_w[:, even] / (
                 1.0 + 1.0j * (delta_magn + eta) * self.R0_reta_w[:, even]
             )
         else:
-            self.R_grea_reta_w[:, even] = 1.0 / (
+            self.R_reta_w[:, even] = 1.0 / (
                 self.freqs[:, None] - self.H_loc[None, even] + 1.0j * (delta_magn + eta)
             )
 
-    def fixed_pt_function_grea(self, R_grea_reta_w, eta=0.0):
-        self.R_grea_reta_w[...] = R_grea_reta_w
+    def fixed_pt_function_grea(self, R_reta_w, eta=0.0):
+        self.R_reta_w[...] = R_reta_w
 
         even = self.is_even_state
         odd = ~self.is_even_state
@@ -166,7 +161,7 @@ class NCA_Steady_State_Solver:
 
         self.nr_grea_feval += 2
 
-        return self.R_grea_reta_w.copy()
+        return self.R_reta_w.copy()
 
     def greater_loop(
         self, tol=1e-8, min_iter=5, max_iter=100, eta=1.0, plot=False, verbose=False
@@ -186,12 +181,12 @@ class NCA_Steady_State_Solver:
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
         for _ in range(min_iter):
-            self.fixed_pt_function_grea(self.R_grea_reta_w, eta=eta_i)
+            self.fixed_pt_function_grea(self.R_reta_w, eta=eta_i)
             eta_i /= q
 
         fixed_point_loop(
             self.fixed_pt_function_grea,
-            self.R_grea_reta_w,
+            self.R_reta_w,
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
@@ -203,8 +198,8 @@ class NCA_Steady_State_Solver:
             plt.legend()
             plt.xlim(-20, 15)
 
-        self.R_grea_w[:] = 2j * self.R_grea_reta_w.imag
-        self.S_grea_w[:] = 2j * self.S_grea_reta_w.imag
+        self.R_grea_w[:] = 2j * self.R_reta_w.imag
+        self.S_grea_w[:] = 2j * self.S_reta_w.imag
 
     ########## lesser ############
     def go_to_times_less(self, states):
@@ -236,9 +231,9 @@ class NCA_Steady_State_Solver:
     def propagator_less(self, states):
         """S^<(w) ---> R^<(w)"""
         self.R_less_w[:, states] = (
-            self.R_grea_reta_w[:, states]
+            self.R_reta_w[:, states]
             * self.S_less_w[:, states]
-            * np.conj(self.R_grea_reta_w[:, states])
+            * np.conj(self.R_reta_w[:, states])
         )
 
     def normalize_less_t(self):
@@ -309,7 +304,7 @@ class NCA_Steady_State_Solver:
 
         return self.R_less_w.copy()
 
-    def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False):
+    def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
         def err_func(R):
             return np.trapz(np.mean(np.abs(R), axis=1), dx=self.freq_mesh.delta)
 
@@ -331,7 +326,7 @@ class NCA_Steady_State_Solver:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
-            alpha=0.75,
+            alpha=alpha,
         )
 
         if plot:
