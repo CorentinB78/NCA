@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 
 
 class NCA_Steady_State_Solver:
-    def __init__(self, H_loc, time_mesh, hybridizations):
+    def __init__(self, H_loc, time_mesh, hybridizations, list_even_states):
         """
         Real time Non-Crossing Approximation (NCA) solver for steady states.
 
@@ -19,11 +19,15 @@ class NCA_Steady_State_Solver:
         hybridizations: list of hybridization processes. Each process is a tuple (a, b, delta_grea, delta_less) where
             a, b are states (identified by an int within range(D)) and delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from a to b then back to a. Conjugate processes are not added automatically.
             Optionnaly, several processes can be regrouped if they share the same hybridization functions, then a and b should be 1D arrays.
+        list_even_states: TODO
         """
 
         self.H_loc = np.asarray(H_loc)
         self.D = len(self.H_loc)
         self.Z_loc = self.D
+        self.is_even_state = np.array(
+            [(s in list_even_states) for s in range(self.D)], dtype=bool
+        )
 
         self.hybridizations = hybridizations
         self.time_mesh = time_mesh
@@ -57,73 +61,86 @@ class NCA_Steady_State_Solver:
         self.nr_less_feval = 0
 
     ############# greater ##############
-    def go_to_times_grea(self):
+    def go_to_times_grea(self, states):
         """\tilde R^>(w) ---> R^>(t)"""
-        _, self.R_grea = inv_fourier_transform(
-            self.freq_mesh, 2j * self.R_grea_reta_w.imag, axis=0
+        _, self.R_grea[:, states] = inv_fourier_transform(
+            self.freq_mesh, 2j * self.R_grea_reta_w[:, states].imag, axis=0
         )
 
-    def normalize_grea(self):
+    def normalize_grea(self, states):
         idx0 = len(self.time_mesh) // 2
-        for k in range(self.D):
-            self.R_grea[:, k] /= 1.0j * self.R_grea[idx0, k]
+        self.R_grea[:, states] /= 1.0j * self.R_grea[idx0, states]
 
-    def self_energy_grea(self):
+    def self_energy_grea(self, states):
         """R^>(t) ---> S^>(t)"""
-        self.S_grea[:, :] = 0.0
+        self.S_grea[:, states] = 0.0
 
-        for state_a, state_b, delta, _ in self.hybridizations:
-            state_a, state_b = np.atleast_1d(state_a, state_b)
-            self.S_grea[:, state_a] += 1j * delta[:, None] * self.R_grea[:, state_b]
+        for states_a, states_b, delta, _ in self.hybridizations:
+            states_a, states_b = np.atleast_1d(states_a, states_b)
+            for (a, b) in zip(states_a, states_b):
+                if states[a]:
+                    if states[b]:
+                        raise RuntimeError(
+                            "An hybridization process couples two states of same parity."
+                        )
+                    self.S_grea[:, a] += 1j * delta[:] * self.R_grea[:, b]
 
-    def back_to_freqs_grea(self):
+    def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
         idx0 = len(self.time_mesh) // 2
-        self.S_grea_reta_w[:idx0, :] = 0.0
-        self.S_grea_reta_w[idx0:, :] = self.S_grea[idx0:, :]
-        self.S_grea_reta_w[idx0, :] *= 0.5
-        _, self.S_grea_reta_w = fourier_transform(
-            self.time_mesh, self.S_grea_reta_w, axis=0
+        self.S_grea_reta_w[:idx0, states] = 0.0
+        self.S_grea_reta_w[idx0:, states] = self.S_grea[idx0:, states]
+        self.S_grea_reta_w[idx0, states] *= 0.5
+        _, self.S_grea_reta_w[:, states] = fourier_transform(
+            self.time_mesh, self.S_grea_reta_w[:, states], axis=0
         )
 
-    def propagator_grea(self, eta=0.0):
+    def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
-
-        self.R_grea_reta_w[:, :] = (
+        self.R_grea_reta_w[:, states] = (
             self.freq_mesh.values()[:, None]
-            - self.H_loc[None, :]
-            - self.S_grea_reta_w[:, :]
+            - self.H_loc[states]
+            - self.S_grea_reta_w[:, states]
             + 1.0j * eta
         )
-        if not np.all(np.isfinite(self.R_grea_reta_w)):
+        if not np.all(np.isfinite(self.R_grea_reta_w[:, states])):
             raise RuntimeError("WARNING: division by zero")
-        self.R_grea_reta_w = 1.0 / self.R_grea_reta_w
+        self.R_grea_reta_w[:, states] = 1.0 / self.R_grea_reta_w[:, states]
 
     def initialize_grea(self, eta=0.0):
-        for k, t in enumerate(self.time_mesh.values()):
-            self.R_grea[k, :] = (
-                -1j
-                * np.exp(-1j * self.H_loc * t)
-                * np.exp(-((4.0 * t / self.time_mesh.xmax) ** 2))
-            )
+        even = self.is_even_state
+        odd = ~self.is_even_state
+        self.R_grea[:, odd] = (
+            -1j
+            * np.exp(-1j * self.H_loc[odd] * self.times[:, None])
+            * np.exp(-((4.0 * self.times[:, None] / self.time_mesh.xmax) ** 2))
+        )
 
-        self.normalize_grea()
-        self.self_energy_grea()
-        self.back_to_freqs_grea()
-        self.propagator_grea(eta=eta)
+        self.normalize_grea(odd)
+        self.self_energy_grea(even)
+        self.back_to_freqs_grea(even)
+        self.propagator_grea(even, eta=eta)
 
     def fixed_pt_function_grea(self, R_grea_reta_w, eta=0.0):
-        self.R_grea_reta_w = R_grea_reta_w
+        self.R_grea_reta_w[...] = R_grea_reta_w
 
-        self.go_to_times_grea()
-        self.normalize_grea()
-        self.self_energy_grea()
-        self.back_to_freqs_grea()
-        self.propagator_grea(eta=eta)
+        even = self.is_even_state
+        odd = ~self.is_even_state
 
-        self.nr_grea_feval += 1
+        self.go_to_times_grea(even)
+        self.normalize_grea(even)
+        self.self_energy_grea(odd)
+        self.back_to_freqs_grea(odd)
+        self.propagator_grea(odd, eta=eta)
+        self.go_to_times_grea(odd)
+        self.normalize_grea(odd)
+        self.self_energy_grea(even)
+        self.back_to_freqs_grea(even)
+        self.propagator_grea(even, eta=eta)
 
-        return self.R_grea_reta_w
+        self.nr_grea_feval += 2
+
+        return self.R_grea_reta_w.copy()
 
     def greater_loop(
         self, tol=1e-8, min_iter=5, max_iter=100, eta=1.0, plot=False, verbose=False
@@ -138,7 +155,7 @@ class NCA_Steady_State_Solver:
                 label=str(n_iter),
             )
 
-        self.initialize_grea()
+        self.initialize_grea(eta=eta)
 
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
@@ -164,26 +181,38 @@ class NCA_Steady_State_Solver:
         self.S_grea_w[:] = 2j * self.S_grea_reta_w.imag
 
     ########## lesser ############
-    def go_to_times_less(self):
+    def go_to_times_less(self, states):
         """R^<(w) ---> R^<(t)"""
-        _, self.R_less = inv_fourier_transform(self.freq_mesh, self.R_less_w, axis=0)
+        _, self.R_less[:, states] = inv_fourier_transform(
+            self.freq_mesh, self.R_less_w[:, states], axis=0
+        )
 
-    def self_energy_less(self):
+    def self_energy_less(self, states):
         """R^<(t) ---> S^<(t)"""
-        self.S_less[:, :] = 0.0
+        self.S_less[:, states] = 0.0
 
-        for state_a, state_b, _, delta in self.hybridizations:
-            state_a, state_b = np.atleast_1d(state_a, state_b)
-            self.S_less[:, state_a] += -1j * delta[:, None] * self.R_less[:, state_b]
+        for states_a, states_b, _, delta in self.hybridizations:
+            states_a, states_b = np.atleast_1d(states_a, states_b)
+            for (a, b) in zip(states_a, states_b):
+                if states[a]:
+                    if states[b]:
+                        raise RuntimeError(
+                            "An hybridization process couples two states of same parity."
+                        )
+                    self.S_less[:, a] += -1j * delta[:] * self.R_less[:, b]
 
-    def back_to_freqs_less(self):
+    def back_to_freqs_less(self, states):
         """S^<(t) ---> S^<(w)"""
-        _, self.S_less_w = fourier_transform(self.time_mesh, self.S_less, axis=0)
+        _, self.S_less_w[:, states] = fourier_transform(
+            self.time_mesh, self.S_less[:, states], axis=0
+        )
 
-    def propagator_less(self):
+    def propagator_less(self, states):
         """S^<(w) ---> R^<(w)"""
-        self.R_less_w[:] = (
-            self.R_grea_reta_w * self.S_less_w * np.conj(self.R_grea_reta_w)
+        self.R_less_w[:, states] = (
+            self.R_grea_reta_w[:, states]
+            * self.S_less_w[:, states]
+            * np.conj(self.R_grea_reta_w[:, states])
         )
 
     def normalize_less_t(self):
@@ -204,32 +233,44 @@ class NCA_Steady_State_Solver:
 
     def initialize_less(self):
         """Run only when R^> is known"""
-        for k, t in enumerate(self.time_mesh.values()):
-            self.R_less[k, :] = (
-                -1j
-                * np.exp(1j * self.H_loc * t)
-                * np.exp(-((4.0 * t / self.time_mesh.xmax) ** 2))
-            )
+        even = self.is_even_state
+        odd = ~self.is_even_state
+
+        self.R_less[:, odd] = (
+            -1j
+            * np.exp(1j * self.H_loc[odd] * self.times[:, None])
+            * np.exp(-((4.0 * self.times[:, None] / self.time_mesh.xmax) ** 2))
+        )
 
         # self.normalize_less_t()
-        self.self_energy_less()
-        self.back_to_freqs_less()
-        self.propagator_less()
-        self.normalize_less_w()
+        self.self_energy_less(even)
+        self.back_to_freqs_less(even)
+        self.propagator_less(even)
+        # self.normalize_less_w()
 
     def fixed_pt_function_less(self, R_less_w):
-        self.R_less_w = R_less_w
+        even = self.is_even_state
+        odd = ~self.is_even_state
 
-        self.go_to_times_less()
+        self.R_less_w[...] = R_less_w.reshape((-1, self.D))
+
+        self.go_to_times_less(even)
         # self.normalize_less_t()
-        self.self_energy_less()
-        self.back_to_freqs_less()
-        self.propagator_less()
+        self.self_energy_less(odd)
+        self.back_to_freqs_less(odd)
+        self.propagator_less(odd)
+        # self.normalize_less_w()
+
+        self.go_to_times_less(odd)
+        # self.normalize_less_t()
+        self.self_energy_less(even)
+        self.back_to_freqs_less(even)
+        self.propagator_less(even)
         self.normalize_less_w()
 
-        self.nr_less_feval += 1
+        self.nr_less_feval += 2
 
-        return self.R_less_w
+        return self.R_less_w.copy()
 
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False):
         def err_func(R):
@@ -253,7 +294,7 @@ class NCA_Steady_State_Solver:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
-            alpha=1.0,
+            alpha=0.75,
         )
 
         if plot:
@@ -262,6 +303,7 @@ class NCA_Steady_State_Solver:
 
 
 class FermionicFockSpace:
+    # TODO: method for list of even states
     def __init__(self, orbital_names):
         self.orbital_names = orbital_names
         self.nr_orbitals = len(orbital_names)

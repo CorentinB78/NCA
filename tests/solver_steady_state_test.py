@@ -36,11 +36,11 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         print(fock.basis())
 
-        S = NCA_Steady_State_Solver(H_loc, mesh, hybs)
+        S = NCA_Steady_State_Solver(H_loc, mesh, hybs, [0, 3])
 
         S.greater_loop(plot=False, verbose=True)
-        S.lesser_loop(plot=True, verbose=True, max_iter=20)
-        plt.show()
+        S.lesser_loop(plot=False, verbose=True, max_iter=20)
+        # plt.show()
 
         G_grea = fock.get_G_grea(0, S)
         G_less = fock.get_G_less(0, S)
@@ -129,14 +129,15 @@ class SolverSteadyStateTest(unittest.TestCase):
         fock.add_bath(1, Delta_grea_dn, Delta_less_dn)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs)
+        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
 
         S.R_grea[:, 0] = np.sin(5.0 * times) * np.cos(0.6 * times - 1.0)
         S.R_grea[:, 1] = np.sin(2.0 * times) * np.cos(0.3 * times - 4.0)
         S.R_grea[:, 2] = np.sin(7.0 * times) * np.cos(0.2 * times - 3.0)
         S.R_grea[:, 3] = np.sin(1.0 * times) * np.cos(0.5 * times - 9.0)
 
-        S.self_energy_grea()
+        S.self_energy_grea(S.is_even_state)
+        S.self_energy_grea(~S.is_even_state)
 
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
@@ -172,7 +173,8 @@ class SolverSteadyStateTest(unittest.TestCase):
         S.R_less[:, 2] = np.sin(7.0 * times) * np.cos(0.2 * times - 3.0)
         S.R_less[:, 3] = np.sin(1.0 * times) * np.cos(0.5 * times - 9.0)
 
-        S.self_energy_less()
+        S.self_energy_less(S.is_even_state)
+        S.self_energy_less(~S.is_even_state)
 
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
@@ -224,7 +226,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs)
+        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
 
         S.greater_loop(tol=1e-5, verbose=True)
         S.lesser_loop(tol=1e-5, verbose=True)
