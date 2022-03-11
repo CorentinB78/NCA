@@ -5,7 +5,6 @@ from numpy.testing._private.utils import assert_equal
 from nca.utilities import *
 from nca.hybridizations import *
 from nca.solver_steady_state import *
-from nca.solver_steady_state_dyson import *
 
 
 class SolverSteadyStateTest(unittest.TestCase):
@@ -259,6 +258,100 @@ class SolverSteadyStateTest(unittest.TestCase):
 
 
 class SolverSteadyStateDysonTest(unittest.TestCase):
+    def test_fluctuation_dissipation(self):
+        mesh = Mesh(3000.0, 200001)
+        # times = time_mesh.values()
+
+        ### local model
+        Gamma = 1.0
+        eps = -1.0 * Gamma
+        U = 3.0 * Gamma
+
+        ### basis: 0, dn, up, updn
+        H_loc = np.array([0.0, eps, eps, 2 * eps + U])
+        decay_t = 3000.0
+        R0 = 1.0 / (
+            mesh.adjoint().values()[:, None] - H_loc[None, :] + 2j * np.pi / decay_t
+        )
+        # R0 = (
+        #     -1j
+        #     * np.exp(-1j * H_loc[None, :] * mesh.values()[:, None])
+        #     * np.exp(-np.abs(mesh.values()[:, None]) / decay_t)
+        # )
+
+        beta = 3.0 / Gamma
+        Ef = 0.3 * Gamma
+        D = 6.0 * Gamma
+        E0 = 0.0
+
+        ### Hybridization
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
+
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, delta_grea, delta_less)
+        fock.add_bath(1, delta_grea, delta_less)
+        hybs = fock.generate_hybridizations()
+
+        print(fock.basis())
+
+        S = NCA_Steady_State_Solver(R0, mesh, hybs, [0, 3])
+
+        S.greater_loop(plot=False, verbose=True)
+        S.lesser_loop(verbose=True, max_iter=100)
+        # plt.plot(S.freqs, S.R_less_w.real)
+        # plt.plot(S.freqs, S.R_less_w.imag)
+        # plt.show()
+
+        G_grea = fock.get_G_grea(0, S)
+        G_less = fock.get_G_less(0, S)
+        # dos = 1j * (G_grea - G_less) / (2 * np.pi)
+
+        self.assertAlmostEqual(
+            G_grea[len(mesh) // 2] - G_less[len(mesh) // 2], -1.0j, 1
+        )
+
+        self.assertAlmostEqual(
+            G_grea[len(mesh) // 2 - 100], -np.conj(G_grea[len(mesh) // 2 + 100]), 2
+        )
+        self.assertAlmostEqual(
+            G_less[len(mesh) // 2 - 100], -np.conj(G_less[len(mesh) // 2 + 100]), 2
+        )
+
+        freq_mesh, G_grea_w = fourier_transform(mesh, G_grea)
+        freq_mesh, G_less_w = fourier_transform(mesh, G_less)
+
+        dos_w = 1.0j * (G_grea_w - G_less_w) / (2.0 * np.pi)
+
+        mask = np.abs(freq_mesh.values() - Ef) < 1.0
+        np.testing.assert_allclose(
+            G_less_w[mask] / dos_w[mask] / (2j * np.pi),
+            tb.fermi(freq_mesh.values()[mask], Ef, beta),
+            atol=1e-2,
+        )
+        np.testing.assert_allclose(
+            G_grea_w[mask] / dos_w[mask] / (-2j * np.pi),
+            tb.fermi(-freq_mesh.values()[mask], -Ef, beta),
+            atol=1e-2,
+        )
+
+        ### normalization tests
+        idx0 = len(S.times) // 2
+        self.assertEqual(S.times[idx0], 0.0)
+
+        for k in range(4):
+            self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
+            self.assertAlmostEqual(
+                np.trapz(S.R_grea_w[:, k], dx=S.freq_mesh.delta) / (2 * np.pi), -1j, 2
+            )
+
+        self.assertAlmostEqual(np.sum(S.R_grea[idx0, :]), -4j)
+        self.assertAlmostEqual(
+            np.trapz(np.sum(S.R_grea_w[:, :], axis=1), dx=S.freq_mesh.delta)
+            / (2 * np.pi),
+            -4j,
+            2,
+        )
+
     def test_values(self):
         beta = 1.0
         mu = 0.5
@@ -270,12 +363,17 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
 
         ### basis: 0, up, dn, updn
         H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
-        decay_t = time_mesh.xmax / 4.0
-        R0 = (
-            -1j
-            * np.exp(-1j * time_mesh.values()[:, None] * H_loc[None, :])
-            * np.exp(-np.abs(time_mesh.values()[:, None]) / decay_t)
+        decay_t = 1000.0
+        R0 = 1.0 / (
+            time_mesh.adjoint().values()[:, None]
+            - H_loc[None, :]
+            + 2j * np.pi / decay_t
         )
+        # R0 = (
+        #     -1j
+        #     * np.exp(-1j * time_mesh.values()[:, None] * H_loc[None, :])
+        #     * np.exp(-np.abs(time_mesh.values()[:, None]) / decay_t)
+        # )
 
         delta_less, delta_grea = make_Delta_semicirc(
             Gamma, D, 0.0, beta, 0.0, time_mesh
@@ -286,13 +384,13 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver_Dyson(R0, R0, time_mesh, hybs)
+        S = NCA_Steady_State_Solver(R0, time_mesh, hybs, [0, 3])
 
-        S.greater_loop(tol=1e-5, verbose=True, plot=False)
-        plt.plot(S.times, S.R_grea[:, 2].real)
-        plt.plot(S.times, S.R_grea[:, 2].imag)
-        plt.show()
-        S.lesser_loop(tol=1e-5, verbose=True)
+        S.greater_loop(tol=1e-10, verbose=True, plot=False)
+        S.lesser_loop(tol=1e-10, verbose=True)
+        # plt.plot(S.times, S.R_less[:, 2].real)
+        # plt.plot(S.times, S.R_less[:, 2].imag)
+        # plt.show()
 
         times_ref = np.linspace(-5.0, 5.0, 11)
 
@@ -314,11 +412,21 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         )
         G_less_ref = np.conj(G_grea_ref)
 
+        # plt.plot(times_ref, G_grea_ref.real, "o-")
+        # plt.plot(S.times, fock.get_G_grea(0, S).real, "--")
+        # plt.xlim(-10, 10)
+        # plt.show()
+
+        # plt.plot(times_ref, G_less_ref.real, "o-")
+        # plt.plot(S.times, fock.get_G_less(0, S).real, "--")
+        # plt.xlim(-10, 10)
+        # plt.show()
+
         G_grea = np.interp(times_ref, S.times, fock.get_G_grea(0, S))
-        np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
+        np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 2)
 
         G_less = np.interp(times_ref, S.times, fock.get_G_less(0, S))
-        np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
+        np.testing.assert_array_almost_equal(G_less, G_less_ref, 2)
 
 
 # TODO: add comparison with imaginary times
