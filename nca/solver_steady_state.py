@@ -5,7 +5,9 @@ from .fixed_point_loop_solver import fixed_point_loop
 
 
 class NCA_Steady_State_Solver:
-    def __init__(self, local_evol, time_mesh, hybridizations, list_even_states):
+    def __init__(
+        self, local_evol, time_mesh, hybridizations, list_even_states, energy_shift=None
+    ):
         """
         Real time Non-Crossing Approximation (NCA) solver for steady states.
 
@@ -60,8 +62,14 @@ class NCA_Steady_State_Solver:
         self.S_grea_w = np.zeros((N, self.D), dtype=complex)
         self.S_reta_w = np.zeros((N, self.D), dtype=complex)
 
+        self.energy_shift = np.zeros(self.D)
+        if energy_shift is not None:
+            self.energy_shift += energy_shift
+
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
+
+        self.normalization_error = []
 
     ############# greater ##############
     def go_to_times_grea(self, states):
@@ -72,6 +80,9 @@ class NCA_Steady_State_Solver:
 
     def normalize_grea(self, states):
         idx0 = len(self.time_mesh) // 2
+        self.normalization_error.append(
+            np.mean(np.abs(self.R_grea[idx0, states] + 1.0j))
+        )
         self.R_grea[:, states] /= 1.0j * self.R_grea[idx0, states]
 
     def self_energy_grea(self, states):
@@ -86,7 +97,16 @@ class NCA_Steady_State_Solver:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
-                    self.S_grea[:, a] += 1j * delta[:] * self.R_grea[:, b]
+                    self.S_grea[:, a] += (
+                        1j
+                        * delta[:]
+                        * self.R_grea[:, b]
+                        * np.exp(
+                            1j
+                            * (self.energy_shift[a] - self.energy_shift[b])
+                            * self.times
+                        )
+                    )
 
     def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
@@ -101,8 +121,8 @@ class NCA_Steady_State_Solver:
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
         if self.H_loc is None:
-            self.R_reta_w[:, states] = (
-                1.0 - self.R0_reta_w[:, states] * self.S_reta_w[:, states] + 1.0j * eta
+            self.R_reta_w[:, states] = 1.0 - self.R0_reta_w[:, states] * (
+                self.S_reta_w[:, states] - 1.0j * eta
             )
             if not np.all(np.isfinite(self.R_reta_w[:, states])):
                 raise ZeroDivisionError
@@ -112,6 +132,7 @@ class NCA_Steady_State_Solver:
         else:
             self.R_reta_w[:, states] = (
                 self.freq_mesh.values()[:, None]
+                + self.energy_shift[states]
                 - self.H_loc[states]
                 - self.S_reta_w[:, states]
                 + 1.0j * eta
@@ -138,8 +159,11 @@ class NCA_Steady_State_Solver:
                 1.0 + 1.0j * (delta_magn + eta) * self.R0_reta_w[:, even]
             )
         else:
+            self.energy_shift += (
+                self.H_loc
+            )  # add shifts for all states to initial custom shifts
             self.R_reta_w[:, even] = 1.0 / (
-                self.freqs[:, None] - self.H_loc[None, even] + 1.0j * (delta_magn + eta)
+                self.freqs[:, None] + 1.0j * (delta_magn + eta)
             )
 
     def fixed_pt_function_grea(self, R_reta_w, eta=0.0):
@@ -220,7 +244,16 @@ class NCA_Steady_State_Solver:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
-                    self.S_less[:, a] += -1j * delta[:] * self.R_less[:, b]
+                    self.S_less[:, a] += (
+                        -1j
+                        * delta[:]
+                        * self.R_less[:, b]
+                        * np.exp(
+                            1j
+                            * (self.energy_shift[a] - self.energy_shift[b])
+                            * self.times
+                        )
+                    )
 
     def back_to_freqs_less(self, states):
         """S^<(t) ---> S^<(w)"""
@@ -275,6 +308,7 @@ class NCA_Steady_State_Solver:
                 1.0
                 / (
                     self.freqs[:, None]
+                    + self.energy_shift[None, even]
                     - self.H_loc[None, even]
                     + 1.0j * (delta_magn + eta)
                 )
@@ -328,6 +362,8 @@ class NCA_Steady_State_Solver:
             err_func=err_func,
             alpha=alpha,
         )
+
+        self.go_to_times_less(range(self.D))
 
         if plot:
             plt.legend()
@@ -383,12 +419,19 @@ class FermionicFockSpace:
         return hyb
 
     def get_G_grea(self, orbital, solver):
+        """Returns G^>(t) on time grid used in solver"""
         if orbital >= self.nr_orbitals:
             raise ValueError
 
         states_yes, states_no = self.states_containing(orbital)
         G_grea = np.sum(
-            solver.R_less[::-1, states_no] * solver.R_grea[:, states_yes],
+            solver.R_less[::-1, states_no]
+            * solver.R_grea[:, states_yes]
+            * np.exp(
+                1j
+                * (solver.energy_shift[states_no] - solver.energy_shift[states_yes])
+                * solver.times[:, None]
+            ),
             axis=1,
         )
 
@@ -396,12 +439,19 @@ class FermionicFockSpace:
         return G_grea
 
     def get_G_less(self, orbital, solver):
+        """Returns G^<(t) on time grid used in solver"""
         if orbital >= self.nr_orbitals:
             raise ValueError
 
         states_yes, states_no = self.states_containing(orbital)
         G_less = np.sum(
-            solver.R_less[:, states_yes] * solver.R_grea[::-1, states_no],
+            solver.R_less[:, states_yes]
+            * solver.R_grea[::-1, states_no]
+            * np.exp(
+                1j
+                * (solver.energy_shift[states_no] - solver.energy_shift[states_yes])
+                * solver.times[:, None]
+            ),
             axis=1,
         )
 
@@ -409,8 +459,78 @@ class FermionicFockSpace:
         return G_less
 
     def get_DOS(self, orbital, solver):
+        """Returns density of states on frequency grid used in solver"""
         G_less = self.get_G_less(orbital, solver)
         G_grea = self.get_G_grea(orbital, solver)
 
         dos = 1j * (G_grea - G_less) / (2 * np.pi)
         return np.real(fourier_transform(solver.time_mesh, dos)[1])
+
+
+def report_allclose(a, b, *args, **kwargs):
+    print(np.max(np.abs(a - b)))
+
+
+def report_less(a, b, *args, **kwargs):
+    diff = a - b
+    mask = diff >= 0.0
+    if mask.any():
+        print(np.max(diff[mask]))
+    else:
+        print(0.0)
+
+
+def sanity_checks(S, fock=None):
+
+    ### R & S
+
+    ### Fourier transforms
+    w_ref, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less, axis=0)
+
+    report_allclose(w_ref.values(), S.freqs)
+    report_allclose(R_less_w_ref, S.R_less_w, atol=1e-4)
+
+    _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea, axis=0)
+    report_allclose(R_grea_w_ref, S.R_grea_w, atol=1e-4)
+
+    _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less, axis=0)
+    report_allclose(S_less_w_ref, S.S_less_w, atol=1e-4)
+
+    _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea, axis=0)
+    report_allclose(S_grea_w_ref, S.S_grea_w, atol=1e-4)
+
+    ### symmetries: diagonal lessers and greaters are pure imaginary
+    report_allclose(S.R_less_w.real, 0.0, atol=1e-8)
+    report_allclose(S.R_grea_w.real, 0.0, atol=1e-8)
+    report_allclose(S.S_less_w.real, 0.0, atol=1e-8)
+    report_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
+
+    ### normalization
+    idx0 = len(S.times) // 2
+
+    for k in range(S.D):
+        report_allclose(S.R_grea[idx0, k], -1j)
+
+    report_allclose(np.sum(S.R_less[idx0, :]), -1j * S.Z_loc, 2)
+
+    ### Green functions
+    if fock is not None:
+
+        for k in range(fock.nr_orbitals):
+            G_grea = fock.get_G_grea(k, S)
+            G_less = fock.get_G_less(k, S)
+            Dos_w = fock.get_DOS(k, S)
+
+            _, G_grea_w = fourier_transform(S.time_mesh, G_grea)
+            _, G_less_w = fourier_transform(S.time_mesh, G_less)
+
+            ### normalization and DoS
+            Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
+            report_allclose(Dos_w_ref, Dos_w, atol=1e-8)
+            report_allclose(np.trapz(x=S.freqs, y=Dos_w), 1.0, atol=1e-6)
+
+            ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
+            report_allclose(G_grea_w.real, 0.0, atol=1e-8)
+            report_allclose(G_less_w.real, 0.0, atol=1e-8)
+            report_less(G_grea_w.imag, 1e-8)
+            report_less(-G_less_w.imag, 1e-8)
