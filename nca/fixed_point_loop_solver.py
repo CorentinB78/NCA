@@ -11,6 +11,7 @@ def fixed_point_loop(
     callback_func=None,
     err_func=None,
     alpha=1.0,
+    f_kwargs=None,
 ):
     """
     Solve fixed point problem by performing x <- f(x) loops.
@@ -19,9 +20,12 @@ def fixed_point_loop(
     err = +np.inf
     x = copy(x0)
 
+    if f_kwargs is None:
+        f_kwargs = {}
+
     while err > tol and n_iter < max_iter:
         old_x = copy(x)
-        x += alpha * (f(x) - x)
+        x += alpha * (f(x, **f_kwargs) - x)
         n_iter += 1
 
         if err_func is None:

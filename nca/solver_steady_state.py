@@ -188,7 +188,14 @@ class NCA_Steady_State_Solver:
         return self.R_reta_w.copy()
 
     def greater_loop(
-        self, tol=1e-8, min_iter=5, max_iter=100, eta=1.0, plot=False, verbose=False
+        self,
+        tol=1e-8,
+        min_iter=5,
+        max_iter=100,
+        eta=1.0,
+        eta_perm=0.0,
+        plot=False,
+        verbose=False,
     ):
         def err_func(R):
             return np.trapz(np.mean(np.abs(R), axis=1), dx=self.freq_mesh.delta)
@@ -200,12 +207,12 @@ class NCA_Steady_State_Solver:
                 label=str(n_iter),
             )
 
-        self.initialize_grea(eta=eta)
+        self.initialize_grea(eta=eta + eta_perm)
 
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
         for _ in range(min_iter):
-            self.fixed_pt_function_grea(self.R_reta_w, eta=eta_i)
+            self.fixed_pt_function_grea(self.R_reta_w, eta=eta_i + eta_perm)
             eta_i /= q
 
         fixed_point_loop(
@@ -216,6 +223,7 @@ class NCA_Steady_State_Solver:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
+            f_kwargs={"eta": eta_perm},
         )
 
         if plot:
