@@ -276,19 +276,19 @@ class NCA_Steady_State_Solver:
 
     def normalize_less_t(self):
         idx0 = len(self.time_mesh) // 2
-        Z = 1j * np.mean(self.R_less[idx0])
+        Z = 1j * np.sum(self.R_less[idx0])
         if Z == 0.0:
             print(self.R_less[idx0])
             raise ZeroDivisionError
-        self.R_less_w /= Z
-        self.R_less /= Z
+        self.R_less_w *= self.Z_loc / Z
+        self.R_less *= self.Z_loc / Z
 
     def normalize_less_w(self):
         Z = 1j * np.sum(np.trapz(x=self.freqs, y=self.R_less_w, axis=0)) / (2 * np.pi)
         if Z == 0.0:
             raise ZeroDivisionError
         self.R_less_w *= self.Z_loc / Z
-        self.R_less /= Z
+        self.R_less *= self.Z_loc / Z
 
     def initialize_less(self, eta=0.0):
         even = self.is_even_state
