@@ -288,7 +288,7 @@ class NCA_Steady_State_Solver:
         if Z == 0.0:
             raise ZeroDivisionError
         self.R_less_w *= self.Z_loc / Z
-        # self.R_less /= Z
+        self.R_less /= Z
 
     def initialize_less(self, eta=0.0):
         even = self.is_even_state
@@ -318,6 +318,8 @@ class NCA_Steady_State_Solver:
                     + 1.0j * (delta_magn + eta)
                 )
             )
+
+        self.normalize_less_w()
 
     def fixed_pt_function_less(self, R_less_w):
         even = self.is_even_state
