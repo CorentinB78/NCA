@@ -10,6 +10,9 @@ class FermionicFockSpace:
         self.baths = []
 
     def state_string(self, state):
+        """
+        Represent a state as a string of the filled orbital names
+        """
         s = []
 
         for k in range(self.nr_orbitals):
@@ -88,6 +91,99 @@ class FermionicFockSpace:
         )
 
         G_less *= -1j / solver.Z_loc
+        return G_less
+
+    def get_DOS(self, orbital, solver):
+        """Returns density of states on frequency grid used in solver"""
+        G_less = self.get_G_less(orbital, solver)
+        G_grea = self.get_G_grea(orbital, solver)
+
+        dos = 1j * (G_grea - G_less) / (2 * np.pi)
+        return np.real(fourier_transform(solver.time_mesh, dos)[1])
+
+
+class AIM_infinite_U:
+    # TODO: method for list of even states
+    def __init__(self):
+        self.orbital_names = ["up", "dn"]
+        self.nr_orbitals = 2
+        self.baths = []
+
+    def state_string(self, state):
+        """
+        Represent a state as a string of the filled orbital names
+        """
+        if state >= 3:
+            raise ValueError(f"State {state} does not exist")
+
+        s = []
+
+        for k in range(self.nr_orbitals):
+            if (state % 2) == 1:
+                s.append(self.orbital_names[k])
+            state = state // 2
+
+        return ",".join(s)
+
+    def basis(self):
+        all_states = np.arange(2 ** self.nr_orbitals)[:3]
+        out = [self.state_string(s) for s in all_states]
+        return out
+
+    def add_bath(self, orbital, delta_grea, delta_less):
+        """Only baths coupled to a single orbital for now"""
+        self.baths.append((orbital, delta_grea, delta_less))
+
+    def is_orb_in_state(self, orbital, state):
+        if state >= 3:
+            raise ValueError(f"State {state} does not exist")
+
+        return (state // 2 ** orbital) % 2 == 1
+
+    def states_containing(self, orbital):
+        all_states = np.arange(2 ** self.nr_orbitals)
+        contains = self.is_orb_in_state(orbital, all_states)
+        return all_states[contains], all_states[~contains]
+
+    def generate_hybridizations(self):
+        hybs = []
+
+        for orbital, delta_grea, delta_less in self.baths:
+            if orbital == 0:
+                hybs.append((1, 0, delta_grea, delta_less))
+                hybs.append((0, 1, np.conj(delta_less), np.conj(delta_grea)))
+            elif orbital == 1:
+                hybs.append((2, 0, delta_grea, delta_less))
+                hybs.append((0, 2, np.conj(delta_less), np.conj(delta_grea)))
+            else:
+                raise RuntimeError
+
+        return hybs
+
+    def get_G_grea(self, orbital, solver):
+        """Returns G^>(t) on time grid used in solver"""
+        if orbital >= self.nr_orbitals:
+            raise ValueError
+
+        G_grea = 1j * solver.R_less[::-1, 0] * solver.R_grea[:, 1]
+        G_grea *= np.exp(
+            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * solver.times
+        )
+
+        G_grea /= solver.Z_loc
+        return G_grea
+
+    def get_G_less(self, orbital, solver):
+        """Returns G^<(t) on time grid used in solver"""
+        if orbital >= self.nr_orbitals:
+            raise ValueError
+
+        G_less = -1j * solver.R_less[:, 1] * solver.R_grea[::-1, 0]
+        G_less *= np.exp(
+            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * solver.times
+        )
+
+        G_less /= solver.Z_loc
         return G_less
 
     def get_DOS(self, orbital, solver):
