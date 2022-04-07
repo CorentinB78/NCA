@@ -159,9 +159,6 @@ class NCA_Steady_State_Solver:
                 1.0 + 1.0j * (delta_magn + eta) * self.R0_reta_w[:, even]
             )
         else:
-            self.energy_shift += (
-                self.H_loc
-            )  # add shifts for all states to initial custom shifts
             self.R_reta_w[:, even] = 1.0 / (
                 self.freqs[:, None] + 1.0j * (delta_magn + eta)
             )
