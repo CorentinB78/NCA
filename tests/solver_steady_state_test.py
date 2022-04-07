@@ -394,14 +394,9 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         ### basis: 0, dn, up, updn
         H_loc = np.array([0.0, eps, eps, 2 * eps + U])
         decay_t = 3000.0
-        R0 = 1.0 / (
-            mesh.adjoint().values()[:, None] - H_loc[None, :] + 2j * np.pi / decay_t
+        inv_R0 = (
+            mesh.adjoint().values()[None, :] - H_loc[:, None] + 2j * np.pi / decay_t
         )
-        # R0 = (
-        #     -1j
-        #     * np.exp(-1j * H_loc[None, :] * mesh.values()[:, None])
-        #     * np.exp(-np.abs(mesh.values()[:, None]) / decay_t)
-        # )
 
         beta = 3.0
         Ef = 0.3
@@ -418,7 +413,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
 
         print(fock.basis())
 
-        S = NCA_Steady_State_Solver(R0, mesh, hybs, [0, 3])
+        S = NCA_Steady_State_Solver(inv_R0, mesh, hybs, [0, 3])
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(verbose=True, max_iter=100)
@@ -505,16 +500,11 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         ### basis: 0, up, dn, updn
         H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
         decay_t = 1000.0
-        R0 = 1.0 / (
-            time_mesh.adjoint().values()[:, None]
-            - H_loc[None, :]
+        inv_R0 = (
+            time_mesh.adjoint().values()[None, :]
+            - H_loc[:, None]
             + 2j * np.pi / decay_t
         )
-        # R0 = (
-        #     -1j
-        #     * np.exp(-1j * time_mesh.values()[:, None] * H_loc[None, :])
-        #     * np.exp(-np.abs(time_mesh.values()[:, None]) / decay_t)
-        # )
 
         delta_less, delta_grea = make_Delta_semicirc(
             Gamma, D, 0.0, beta, 0.0, time_mesh
@@ -525,7 +515,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(R0, time_mesh, hybs, [0, 3])
+        S = NCA_Steady_State_Solver(inv_R0, time_mesh, hybs, [0, 3])
 
         S.greater_loop(tol=1e-10, verbose=True, plot=False)
         S.lesser_loop(tol=1e-10, verbose=True)

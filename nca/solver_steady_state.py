@@ -13,7 +13,7 @@ class NCA_Steady_State_Solver:
 
         For now only diagonal hybridizations and local hamiltonians are supported. TODO.
 
-        * local_evol: diagonal of the (D, D) hamiltonian matrix, or retarded propagator in frequencies in a (N, D) array (D is the number of states in the local system, N the number of times/frequencies)
+        * local_evol: list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`. All local evolutions should be energy shifted according to `energy_shift`, if applicable.
         * time_mesh: an instance of `Mesh`.
         * hybridizations: list of hybridization processes. Each process is a tuple (a, b, delta_grea, delta_less) where a, b are states (identified by an int within range(D)) and delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from a to b then back to a. Conjugate processes are not added automatically.
         Optionnaly, several processes can be regrouped if they share the same hybridization functions, then a and b should be 1D arrays.
@@ -22,21 +22,9 @@ class NCA_Steady_State_Solver:
         # TODO: sanity checks
 
         N = len(time_mesh)
-        local_evol = np.asarray(local_evol)
-        self.H_loc = None
-        self.R0_reta_w = None
-
-        if local_evol.ndim == 1:
-            self.H_loc = local_evol
-        elif local_evol.ndim == 2 and local_evol.shape[0] == N:
-            self.R0_reta_w = local_evol
-        else:
-            raise ValueError(
-                "`local_evol` should have a shape (D) for hamiltonian or (N, D) for propagator."
-            )
-
-        self.D = local_evol.shape[-1]
+        self.D = len(local_evol)
         self.Z_loc = self.D
+
         self.is_even_state = np.array(
             [(s in list_even_states) for s in range(self.D)], dtype=bool
         )
@@ -53,6 +41,13 @@ class NCA_Steady_State_Solver:
 
         self.freq_mesh = self.time_mesh.adjoint()
         self.freqs = self.freq_mesh.values()
+
+        self.inv_R0_reta_w = np.empty((N, self.D), dtype=complex)
+        for s, g in enumerate(local_evol):
+            if isinstance(g, complex) or isinstance(g, float):
+                self.inv_R0_reta_w[:, s] = self.freqs - g
+            else:
+                self.inv_R0_reta_w[:, s] = g
 
         self.R_grea_w = np.zeros((N, self.D), dtype=complex)
         self.R_reta_w = np.zeros((N, self.D), dtype=complex)
@@ -120,26 +115,12 @@ class NCA_Steady_State_Solver:
 
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
-        if self.H_loc is None:
-            self.R_reta_w[:, states] = 1.0 - self.R0_reta_w[:, states] * (
-                self.S_reta_w[:, states] - 1.0j * eta
-            )
-            if not np.all(np.isfinite(self.R_reta_w[:, states])):
-                raise ZeroDivisionError
-            self.R_reta_w[:, states] = (
-                self.R0_reta_w[:, states] / self.R_reta_w[:, states]
-            )
-        else:
-            self.R_reta_w[:, states] = (
-                self.freq_mesh.values()[:, None]
-                + self.energy_shift[states]
-                - self.H_loc[states]
-                - self.S_reta_w[:, states]
-                + 1.0j * eta
-            )
-            if not np.all(np.isfinite(self.R_reta_w[:, states])):
-                raise ZeroDivisionError
-            self.R_reta_w[:, states] = 1.0 / self.R_reta_w[:, states]
+        self.R_reta_w[:, states] = (
+            self.inv_R0_reta_w[:, states] - self.S_reta_w[:, states] + 1.0j * eta
+        )
+        if not np.all(np.isfinite(self.R_reta_w[:, states])):
+            raise ZeroDivisionError
+        self.R_reta_w[:, states] = 1.0 / self.R_reta_w[:, states]
 
     def initialize_grea(self, eta=0.0):
         even = self.is_even_state
@@ -154,14 +135,9 @@ class NCA_Steady_State_Solver:
                     delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
-        if self.H_loc is None:
-            self.R_reta_w[:, even] = self.R0_reta_w[:, even] / (
-                1.0 + 1.0j * (delta_magn + eta) * self.R0_reta_w[:, even]
-            )
-        else:
-            self.R_reta_w[:, even] = 1.0 / (
-                self.freqs[:, None] + 1.0j * (delta_magn + eta)
-            )
+        self.R_reta_w[:, even] = 1.0 / (
+            self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta)
+        )
 
     def fixed_pt_function_grea(self, R_reta_w, eta=0.0):
         self.R_reta_w[...] = R_reta_w
@@ -303,21 +279,9 @@ class NCA_Steady_State_Solver:
                     delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
-        if self.H_loc is None:
-            self.R_less_w[:, even] = np.imag(
-                self.R0_reta_w[:, even]
-                / (1.0 + 1.0j * (delta_magn + eta) * self.R0_reta_w[:, even])
-            )
-        else:
-            self.R_less_w[:, even] = np.imag(
-                1.0
-                / (
-                    self.freqs[:, None]
-                    + self.energy_shift[None, even]
-                    - self.H_loc[None, even]
-                    + 1.0j * (delta_magn + eta)
-                )
-            )
+        self.R_less_w[:, even] = np.imag(
+            1.0 / (self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta))
+        )
 
         self.normalize_less_w()
 
