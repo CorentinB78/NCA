@@ -93,6 +93,16 @@ class FermionicFockSpace:
         G_less *= -1j / solver.Z_loc
         return G_less
 
+    def get_G_grea_w(self, orbital, solver):
+        g = self.get_G_grea(orbital, solver)
+        _, g = fourier_transform(solver.time_mesh, g)
+        return g
+
+    def get_G_less_w(self, orbital, solver):
+        g = self.get_G_less(orbital, solver)
+        _, g = fourier_transform(solver.time_mesh, g)
+        return g
+
     def get_DOS(self, orbital, solver):
         """Returns density of states on frequency grid used in solver"""
         G_less = self.get_G_less(orbital, solver)
@@ -102,7 +112,7 @@ class FermionicFockSpace:
         return np.real(fourier_transform(solver.time_mesh, dos)[1])
 
 
-class AIM_infinite_U:
+class AIM_infinite_U(FermionicFockSpace):
     # TODO: method for list of even states
     def __init__(self):
         self.orbital_names = ["up", "dn"]
@@ -130,20 +140,11 @@ class AIM_infinite_U:
         out = [self.state_string(s) for s in all_states]
         return out
 
-    def add_bath(self, orbital, delta_grea, delta_less):
-        """Only baths coupled to a single orbital for now"""
-        self.baths.append((orbital, delta_grea, delta_less))
-
     def is_orb_in_state(self, orbital, state):
         if state >= 3:
             raise ValueError(f"State {state} does not exist")
 
         return (state // 2 ** orbital) % 2 == 1
-
-    def states_containing(self, orbital):
-        all_states = np.arange(2 ** self.nr_orbitals)
-        contains = self.is_orb_in_state(orbital, all_states)
-        return all_states[contains], all_states[~contains]
 
     def generate_hybridizations(self):
         hybs = []
@@ -185,14 +186,6 @@ class AIM_infinite_U:
 
         G_less /= solver.Z_loc
         return G_less
-
-    def get_DOS(self, orbital, solver):
-        """Returns density of states on frequency grid used in solver"""
-        G_less = self.get_G_less(orbital, solver)
-        G_grea = self.get_G_grea(orbital, solver)
-
-        dos = 1j * (G_grea - G_less) / (2 * np.pi)
-        return np.real(fourier_transform(solver.time_mesh, dos)[1])
 
 
 def report_allclose(a, b, *args, **kwargs):
