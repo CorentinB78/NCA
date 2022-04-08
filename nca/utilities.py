@@ -7,7 +7,7 @@ import toolbox as tb
 class Mesh:
     def __init__(self, xmax, nr_samples, pt_on_value=False):
         if nr_samples % 2 != 1:
-            raise ValueError
+            raise ValueError("nr of samples must be odd.")
 
         if pt_on_value > 0.0:
             delta = 2 * xmax / (nr_samples - 1)

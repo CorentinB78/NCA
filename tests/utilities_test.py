@@ -18,28 +18,29 @@ class MeshTest(unittest.TestCase):
 
 
 class FourierTest(unittest.TestCase):
-    def testA(self):
-        m = Mesh(3.0, 101)
-        print(len(m))
-        f = np.exp(-((m.values() - 1.0j - 0.2) ** 2))
+    def test_direct(self):
+        times = Mesh(100.0, 1001)
+        f_t = np.exp(-((times.values() + 1.0) ** 2))
 
-        mg, g = inv_fourier_transform(m, f)
-        mh, h = fourier_transform(mg, g)
+        freqs, f_w = fourier_transform(times, f_t)
 
-        # mg, g = fourier_transform(m, f)
-        # mh, h = inv_fourier_transform(mg, g)
+        f_w_ref = np.sqrt(np.pi) * np.exp(
+            -freqs.values() ** 2 / 4.0 - 1.0j * freqs.values()
+        )
 
-        tb.cpx_plot(mh.values(), h, label="new")
-        tb.cpx_plot(m.values(), f, label="orig")
-        plt.axvline(0.0)
-        plt.legend()
-        plt.show()
+        np.testing.assert_allclose(f_w, f_w_ref, atol=1e-10)
 
-        tb.cpx_plot(mg.values(), g, label="tr")
-        tb.cpx_plot(*tb.inv_fourier_transform(m.values(), f), ls="--", label="old")
+    def test_inverse(self):
+        freqs = Mesh(100.0, 1001)
+        f_w = np.sqrt(np.pi) * np.exp(
+            -freqs.values() ** 2 / 4.0 - 1.0j * freqs.values()
+        )
 
-        plt.legend()
-        plt.show()
+        times, f_t = inv_fourier_transform(freqs, f_w)
+
+        f_t_ref = np.exp(-((times.values() + 1.0) ** 2))
+
+        np.testing.assert_allclose(f_t, f_t_ref, atol=1e-10)
 
 
 class WindowTest(unittest.TestCase):
