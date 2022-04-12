@@ -88,7 +88,7 @@ class NCA_Steady_State_Solver:
             states_a, states_b = np.atleast_1d(states_a, states_b)
             for (a, b) in zip(states_a, states_b):
                 if states[a]:
-                    if states[b]:
+                    if self.is_even_state[a] == self.is_even_state[b]:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
@@ -221,7 +221,7 @@ class NCA_Steady_State_Solver:
             states_a, states_b = np.atleast_1d(states_a, states_b)
             for (a, b) in zip(states_a, states_b):
                 if states[a]:
-                    if states[b]:
+                    if self.is_even_state[a] == self.is_even_state[b]:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
