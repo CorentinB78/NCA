@@ -27,8 +27,8 @@ class TestRealVsImagSolver(unittest.TestCase):
         S_imag.solve(plot=False, verbose=True)
 
         taus, G_imag = S_imag.get_G_tau(0)
-        self.assertTrue(0.0 in taus)
-        self.assertTrue(beta in taus)
+        self.assertAlmostEqual(taus[0], 0.0)
+        self.assertAlmostEqual(taus[-1], beta)
 
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
@@ -53,21 +53,22 @@ class TestRealVsImagSolver(unittest.TestCase):
         idx_subset = np.append(idx_subset, len(taus) - 1)
         taus_subset = taus[idx_subset]
         self.assertGreater(len(taus_subset), 5)
-        self.assertEqual(taus_subset[-1], beta)
+        self.assertAlmostEqual(taus_subset[0], 0.0)
+        self.assertAlmostEqual(taus_subset[-1], beta)
 
         G_real = []
         for tau in taus_subset:
             G_real.append(tb.gf_tau_from_dos(tau, beta, S_real.freqs, dos))
 
-        ### Plot
-        plt.plot(taus_subset, G_real, "-x", label="real times")
-        plt.plot(taus, G_imag, label="imag times")
+        # ### Plot
+        # plt.plot(taus_subset, G_real, "-x", label="real times")
+        # plt.plot(taus, G_imag, label="imag times")
 
-        plt.legend()
-        plt.xlabel("tau")
-        plt.ylabel("G_imag")
-        plt.title(f"Max abs err: {np.max(np.abs(G_real - G_imag[idx_subset]))}")
-        plt.show()
+        # plt.legend()
+        # plt.xlabel("tau")
+        # plt.ylabel("G_imag")
+        # plt.title(f"Max abs err: {np.max(np.abs(G_real - G_imag[idx_subset]))}")
+        # plt.show()
 
         ### Compare
         testing.assert_allclose(G_real, G_imag[idx_subset], atol=1e-2)
