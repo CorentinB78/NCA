@@ -182,7 +182,11 @@ class SolverImagTime:
             raise ValueError
 
         times_cut, R_tau_cut = tb.vcut(
-            self.time_mesh.values(), self.R_tau, 0.0, self.beta, axis=0
+            self.time_mesh.values(),
+            self.R_tau,
+            0.0 - self.time_mesh.delta / 2.0,  # including 0.
+            self.beta + self.time_mesh.delta / 2.0,  # including beta
+            axis=0,
         )
 
         G_tau = np.zeros(len(times_cut), dtype=float)
