@@ -86,6 +86,7 @@ def planck_taper_window(mesh, W, eps):
 
 
 def gf_tau_from_dos(taus, beta, omegas, dos):
+    # TODO: test and fix issues of overflow for large omegas or large beta (see toolbox)
     delta = omegas[1] - omegas[0]
 
     f = np.empty((len(taus), len(dos)), dtype=float)
