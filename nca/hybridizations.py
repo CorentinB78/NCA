@@ -4,6 +4,22 @@ from .utilities import *
 
 
 def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
+    """
+    Hybridization function in imaginary times for a bath with semicircular DOS.
+
+    Returns the function on [0, beta].
+
+    Arguments:
+        Gamma -- Hybridization strength at Fermi level
+        D -- half bandwidth
+        E0 -- center of semicircle and Fermi level
+        beta -- inverse temperature
+        nr_points -- number of real frequencies for integration
+        time_mesh -- Mesh of imaginary times on which values are returned
+
+    Returns:
+        1D array of same size as `time_mesh`
+    """
 
     omegas = np.linspace(-D, D, nr_points)
 
