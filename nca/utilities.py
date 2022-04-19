@@ -53,7 +53,7 @@ def fourier_transform(mesh, f, axis=-1):
     adj_mesh = mesh.adjoint()
     f = np.swapaxes(f, -1, axis)
     g = fft.fftshift(fft.fft(f, axis=-1), axes=-1)[..., ::-1]
-    g *= mesh.delta * np.exp(1j * adj_mesh.values() * mesh.xmin)
+    g *= mesh.delta * np.exp(adj_mesh.values() * (1j * mesh.xmin))
     return adj_mesh, np.swapaxes(g, -1, axis)
 
 
@@ -61,8 +61,7 @@ def inv_fourier_transform(mesh, f, axis=-1):
     adj_mesh = mesh.adjoint()
     f = np.swapaxes(f, -1, axis)
     g = fft.fftshift(fft.fft(f, axis=-1), axes=-1)
-    g *= mesh.delta * np.exp(-1j * adj_mesh.values() * mesh.xmin)
-    g /= 2 * np.pi
+    g *= (mesh.delta / (2 * np.pi)) * np.exp(adj_mesh.values() * (-1j * mesh.xmin))
     return adj_mesh, np.swapaxes(g, -1, axis)
 
 

@@ -70,8 +70,9 @@ class NCA_Steady_State_Solver:
     def go_to_times_grea(self, states):
         """\tilde R^>(w) ---> R^>(t)"""
         _, self.R_grea[:, states] = inv_fourier_transform(
-            self.freq_mesh, 2j * self.R_reta_w[:, states].imag, axis=0
+            self.freq_mesh, self.R_reta_w[:, states].imag, axis=0
         )
+        self.R_grea[:, states] *= 2j
 
     def normalize_grea(self, states):
         idx0 = len(self.time_mesh) // 2
@@ -170,6 +171,7 @@ class NCA_Steady_State_Solver:
         plot=False,
         verbose=False,
     ):
+        # TODO: make the first iterations print
         def err_func(R):
             return np.trapz(np.mean(np.abs(R), axis=1), dx=self.freq_mesh.delta)
 
