@@ -42,7 +42,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S_real = nca.NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
+        S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
         S_real.greater_loop(eta=0.0, plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
@@ -108,7 +108,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S_real = nca.NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
+        S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
         S_real.greater_loop(eta=0.0, plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)

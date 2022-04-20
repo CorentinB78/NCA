@@ -35,7 +35,7 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         print(fock.basis())
 
-        S = NCA_Steady_State_Solver(H_loc, mesh, hybs, [0, 3])
+        S = SolverSteadyState(H_loc, mesh, hybs, [0, 3])
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(plot=False, verbose=True, max_iter=20)
@@ -146,7 +146,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         fock.add_bath(1, Delta_grea_dn, Delta_less_dn)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
+        S = SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
         S.R_grea[:, 0] = np.sin(5.0 * times) * np.cos(0.6 * times - 1.0)
         S.R_grea[:, 1] = np.sin(2.0 * times) * np.cos(0.3 * times - 4.0)
@@ -243,7 +243,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(H_loc, time_mesh, hybs, [0, 3])
+        S = SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
         S.greater_loop(tol=1e-5, verbose=True)
         S.lesser_loop(tol=1e-5, verbose=True)
@@ -303,7 +303,7 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
 
         print(fock.basis())
 
-        S = NCA_Steady_State_Solver(H_loc, mesh, hybs, [0])
+        S = SolverSteadyState(H_loc, mesh, hybs, [0])
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(plot=False, verbose=True, max_iter=20)
@@ -413,7 +413,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
 
         print(fock.basis())
 
-        S = NCA_Steady_State_Solver(inv_R0, mesh, hybs, [0, 3])
+        S = SolverSteadyState(inv_R0, mesh, hybs, [0, 3])
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(verbose=True, max_iter=100)
@@ -515,7 +515,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        S = NCA_Steady_State_Solver(inv_R0, time_mesh, hybs, [0, 3])
+        S = SolverSteadyState(inv_R0, time_mesh, hybs, [0, 3])
 
         S.greater_loop(tol=1e-10, verbose=True, plot=False)
         S.lesser_loop(tol=1e-10, verbose=True)

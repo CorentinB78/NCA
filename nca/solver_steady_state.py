@@ -4,7 +4,7 @@ from .utilities import fourier_transform, inv_fourier_transform
 from .fixed_point_loop_solver import fixed_point_loop
 
 
-class NCA_Steady_State_Solver:
+class SolverSteadyState:
     def __init__(
         self, local_evol, time_mesh, hybridizations, list_even_states, energy_shift=None
     ):
