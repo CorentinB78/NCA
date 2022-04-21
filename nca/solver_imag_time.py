@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import toolbox as tb
 
 
-### TODO: test against real time
 ### TODO: restrict real quantities to float
 ### TODO: write notes on implementation (energy shift, def of R(tau > beta) , etc)
 class SolverImagTime:
