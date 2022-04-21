@@ -32,10 +32,19 @@ class FermionicFockSpace:
         self.baths.append((orbital, delta_grea, delta_less))
 
     def is_orb_in_state(self, orbital, state):
-        return (state // 2 ** orbital) % 2 == 1
+        """
+        Return a mask over the list of states indicating which ones have an orbital occupated.
+        """
+        return (state // 2**orbital) % 2 == 1
 
     def states_containing(self, orbital):
-        all_states = np.arange(2 ** self.nr_orbitals)
+        """
+        Return two lists, the first containing the states for which `orbital` is occupated, the second containing the other states.
+
+        States of same index only differs from the occupation of `orbital`.
+        # TODO: test
+        """
+        all_states = np.arange(2**self.nr_orbitals)
         contains = self.is_orb_in_state(orbital, all_states)
         return all_states[contains], all_states[~contains]
 
@@ -136,15 +145,18 @@ class AIM_infinite_U(FermionicFockSpace):
         return ",".join(s)
 
     def basis(self):
-        all_states = np.arange(2 ** self.nr_orbitals)[:3]
+        all_states = np.arange(2**self.nr_orbitals)[:3]
         out = [self.state_string(s) for s in all_states]
         return out
 
     def is_orb_in_state(self, orbital, state):
+        """
+        Return a mask over the list of states indicating which ones have an orbital occupated.
+        """
         if state >= 3:
             raise ValueError(f"State {state} does not exist")
 
-        return (state // 2 ** orbital) % 2 == 1
+        return (state // 2**orbital) % 2 == 1
 
     def generate_hybridizations(self):
         hybs = []
