@@ -1,5 +1,7 @@
 import unittest
 from nca.utilities import *
+import numpy as np
+from numpy import testing
 import toolbox as tb
 from matplotlib import pyplot as plt
 
@@ -18,6 +20,43 @@ class TestRegularNumber(unittest.TestCase):
 
 
 class MeshTest(unittest.TestCase):
+    def test_regular_spacing(self):
+        m = Mesh(50.0, 300)
+        testing.assert_allclose(np.diff(m.values()), m.delta)
+
+    def test_zero(self):
+        m = Mesh(50.0, 300)
+        L = len(m)
+        self.assertEqual(m.values()[L // 2], 0.0)
+
+    def test_max_values(self):
+        m = Mesh(50.0, 300)
+        self.assertEqual(m.values()[0], -50.0)
+        self.assertEqual(m.values()[-1], 50.0)
+        self.assertEqual(m.xmin, -50.0)
+        self.assertEqual(m.xmax, 50.0)
+
+    def test_length(self):
+        m = Mesh(50.0, 300)
+        self.assertEqual(len(m), len(m.values()))
+        self.assertEqual(len(m) % 2, 1)
+        self.assertGreater(len(m), 300)
+
+    def test_adjoint(self):
+        m = Mesh(50.0, 300)
+        m_adj = m.adjoint()
+        L = len(m)
+        self.assertEqual(L, len(m_adj))
+        self.assertAlmostEqual(m_adj.xmax / m_adj.delta, m.xmax / m.delta)
+        self.assertAlmostEqual(m.delta * m_adj.delta, 2 * np.pi / L)
+
+    def test_adjoint_of_adjoint(self):
+        m = Mesh(50.0, 300)
+        m_adj = m.adjoint()
+        m_adj_2 = m_adj.adjoint()
+
+        testing.assert_allclose(m.values(), m_adj_2.values())
+
     def test_pt_on_value(self):
         x = 67.34
         m = Mesh(100.0, 101, pt_on_value=x)
@@ -60,8 +99,6 @@ class WindowTest(unittest.TestCase):
     def test_A(self):
         m = Mesh(10.0, 10001)
         window = planck_taper_window(m, 5.0, 2.0)
-        Wm = 4.0
-        Wp = 6.0
 
         x = m.values()
         mask_in = np.abs(x) < 4.0
