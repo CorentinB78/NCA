@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from .utilities import fourier_transform, inv_fourier_transform
 from .fixed_point_loop_solver import fixed_point_loop
+import toolbox as tb
 
 
 class SolverSteadyState:
@@ -207,6 +208,21 @@ class SolverSteadyState:
 
         self.R_grea_w[:] = 2j * self.R_reta_w.imag
         self.S_grea_w[:] = 2j * self.S_reta_w.imag
+
+    def check_quality_grid(self, tol_delta):
+        _, _, w, der2 = tb.derivate_twice(self.freqs, self.R_grea_w, axis=0)
+        der2 = np.trapz(x=w, y=np.abs(der2), axis=0)
+        err_delta = self.freq_mesh.delta**2 * der2 / 12.0
+
+        err_norm = (
+            np.abs(np.trapz(x=self.freqs, y=self.R_reta_w, axis=0) + 1j * np.pi) / np.pi
+        )
+
+        print(f"Quality grid: delta error ={err_delta}")
+        print(f"Quality grid: norm error = {err_norm}")
+
+        dw = np.sqrt(12 * tol_delta / np.max(der2))
+        print(f"Max time advised: {np.pi / dw}")
 
     ########## lesser ############
     def go_to_times_less(self, states):
