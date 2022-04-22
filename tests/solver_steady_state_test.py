@@ -42,6 +42,33 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         return fock, S
 
+    def test_R_reta_non_reg(self):
+        fock, S = self.compute_nca()
+
+        data = np.loadtxt("tests/data_ref/R_reta_w.dat", dtype=complex)
+        w_ref = data[:, 0].real
+        R_reta_w_ref = data[:, 1:]
+
+        R_reta_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_reta_w[:, 0])
+        R_reta_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_reta_w[:, 1])
+
+        testing.assert_allclose(R_reta_w_0, R_reta_w_ref[:, 0])
+        testing.assert_allclose(R_reta_w_1, R_reta_w_ref[:, 1])
+
+    def test_R_less_non_reg(self):
+        fock, S = self.compute_nca()
+
+        data = np.loadtxt("tests/data_ref/R_less_w.dat", dtype=complex)
+        print(data.shape)
+        w_ref = data[:, 0].real
+        R_less_w_ref = data[:, 1:]
+
+        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 0])
+        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 1])
+
+        testing.assert_allclose(R_less_w_0, R_less_w_ref[:, 0])
+        testing.assert_allclose(R_less_w_1, R_less_w_ref[:, 1])
+
     def test_sanity_checks(self):
         beta = 3.0
         Ef = 0.3
