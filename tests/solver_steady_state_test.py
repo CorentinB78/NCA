@@ -113,25 +113,6 @@ class SolverSteadyStateTest(unittest.TestCase):
             atol=1e-2,
         )
 
-    def test_orbital_in_state(self):
-
-        fock = FermionicFockSpace(["up", "dn"])
-
-        # orbitals: 0 = up, 1 = down,
-        # states: 0 = empty, 1 = up, 2 = down, 3 = both
-
-        self.assertEqual(fock.is_orb_in_state(0, 0), False)
-        self.assertEqual(fock.is_orb_in_state(1, 0), False)
-        self.assertEqual(fock.is_orb_in_state(0, 1), True)
-        self.assertEqual(fock.is_orb_in_state(1, 1), False)
-        self.assertEqual(fock.is_orb_in_state(0, 2), False)
-        self.assertEqual(fock.is_orb_in_state(1, 2), True)
-        self.assertEqual(fock.is_orb_in_state(0, 3), True)
-        self.assertEqual(fock.is_orb_in_state(1, 3), True)
-
-        np.testing.assert_array_equal(fock.states_containing(0), ([1, 3], [0, 2]))
-        np.testing.assert_array_equal(fock.states_containing(1), ([2, 3], [0, 1]))
-
     def test_self_energy(self):
         H_loc = [0.0, 1.0, 1.0, 3.0]
         time_mesh = Mesh(10.0, 101)

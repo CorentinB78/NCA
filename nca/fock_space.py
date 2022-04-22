@@ -2,6 +2,25 @@ import numpy as np
 from .utilities import fourier_transform
 
 
+def is_orb_in_state(orbital, state):
+    """
+    Return True if orbital `orbital` is occupied in state `state`.
+    """
+    return (state // 2**orbital) % 2 == 1
+
+
+def states_containing(orbital, nr_orbitals):
+    """
+    Return two lists, the first containing the states for which `orbital` is occupated, the second containing the other states.
+
+    States of same index only differs from the occupation of `orbital`.
+    # TODO: test
+    """
+    all_states = np.arange(2**nr_orbitals)
+    contains = is_orb_in_state(orbital, all_states)
+    return all_states[contains], all_states[~contains]
+
+
 class FermionicFockSpace:
     # TODO: method for list of even states
     def __init__(self, orbital_names):
@@ -23,7 +42,7 @@ class FermionicFockSpace:
         return ",".join(s)
 
     def basis(self):
-        all_states = np.arange(2 ** self.nr_orbitals)
+        all_states = np.arange(2**self.nr_orbitals)
         out = [self.state_string(s) for s in all_states]
         return out
 
@@ -31,28 +50,11 @@ class FermionicFockSpace:
         """Only baths coupled to a single orbital for now"""
         self.baths.append((orbital, delta_grea, delta_less))
 
-    def is_orb_in_state(self, orbital, state):
-        """
-        Return a mask over the list of states indicating which ones have an orbital occupated.
-        """
-        return (state // 2**orbital) % 2 == 1
-
-    def states_containing(self, orbital):
-        """
-        Return two lists, the first containing the states for which `orbital` is occupated, the second containing the other states.
-
-        States of same index only differs from the occupation of `orbital`.
-        # TODO: test
-        """
-        all_states = np.arange(2**self.nr_orbitals)
-        contains = self.is_orb_in_state(orbital, all_states)
-        return all_states[contains], all_states[~contains]
-
     def generate_hybridizations(self):
         hyb = []
 
         for orbital, delta_grea, delta_less in self.baths:
-            states_a, states_b = self.states_containing(orbital)
+            states_a, states_b = states_containing(orbital, self.nr_orbitals)
 
             ### particle processes
             hyb.append((states_a, states_b, delta_grea, delta_less))
@@ -67,7 +69,7 @@ class FermionicFockSpace:
         if orbital >= self.nr_orbitals:
             raise ValueError
 
-        states_yes, states_no = self.states_containing(orbital)
+        states_yes, states_no = states_containing(orbital, self.nr_orbitals)
         G_grea = np.sum(
             solver.R_less[::-1, states_no]
             * solver.R_grea[:, states_yes]
@@ -87,7 +89,7 @@ class FermionicFockSpace:
         if orbital >= self.nr_orbitals:
             raise ValueError
 
-        states_yes, states_no = self.states_containing(orbital)
+        states_yes, states_no = states_containing(orbital, self.nr_orbitals)
         G_less = np.sum(
             solver.R_less[:, states_yes]
             * solver.R_grea[::-1, states_no]
