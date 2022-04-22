@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from .utilities import fourier_transform, inv_fourier_transform
+from .utilities import fourier_transform, inv_fourier_transform, interp
 from .fixed_point_loop_solver import fixed_point_loop
 import toolbox as tb
 
@@ -96,19 +96,9 @@ class SolverSteadyState:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
-                    delta = np.interp(
-                        self.time_meshes[a].values(),
-                        self.time_mesh_hybs.values(),
-                        delta,
-                        left=0.0,
-                        right=0.0,
-                    )
-                    R_grea_b = np.interp(
-                        self.time_meshes[a].values(),
-                        self.time_meshes[b].values(),
-                        self.R_grea[:, b],
-                        left=0.0,
-                        right=0.0,
+                    delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
+                    R_grea_b = interp(
+                        self.time_meshes[a], self.time_meshes[b], self.R_grea[:, b]
                     )
                     self.S_grea[:, a] += (
                         1j
@@ -135,6 +125,7 @@ class SolverSteadyState:
 
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
+        # TODO: mesh interp
         self.R_reta_w[:, states] = (
             self.inv_R0_reta_w[:, states] - self.S_reta_w[:, states] + 1.0j * eta
         )
@@ -266,19 +257,9 @@ class SolverSteadyState:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
-                    delta = np.interp(
-                        self.time_meshes[a].values(),
-                        self.time_mesh_hybs.values(),
-                        delta,
-                        left=0.0,
-                        right=0.0,
-                    )
-                    R_less_b = np.interp(
-                        self.time_meshes[a].values(),
-                        self.time_meshes[b].values(),
-                        self.R_less[:, b],
-                        left=0.0,
-                        right=0.0,
+                    delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
+                    R_less_b = interp(
+                        self.time_meshes[a], self.time_meshes[b], self.R_less[:, b]
                     )
                     self.S_less[:, a] += (
                         -1j

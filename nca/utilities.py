@@ -111,6 +111,10 @@ class Mesh:
         return self.nr_samples
 
 
+def interp(mesh_a, mesh_b, func_b):
+    return np.interp(mesh_a.values(), mesh_b.values(), func_b, left=0.0, right=0.0)
+
+
 def product_functions(mesh_a, func_a, mesh_b, func_b):
     """
     Interpolate on the smaller mesh
@@ -118,7 +122,7 @@ def product_functions(mesh_a, func_a, mesh_b, func_b):
     if mesh_a.xmax > mesh_b.xmax:
         return product_functions(mesh_b, func_b, mesh_a, func_a)
 
-    func_b = np.interp(mesh_a.values(), mesh_b.values(), func_b, left=0.0, right=0.0)
+    func_b = interp(mesh_a, mesh_b, func_b)
     return mesh_a, func_a * func_b
 
 
@@ -132,7 +136,7 @@ def sum_functions(mesh_a, func_a, mesh_b, func_b):
     if mesh_a.xmax < mesh_b.xmax:
         return sum_functions(mesh_b, func_b, mesh_a, func_a)
 
-    func_b = np.interp(mesh_a.values(), mesh_b.values(), func_b, left=0.0, right=0.0)
+    func_b = interp(mesh_a, mesh_b, func_b)
     return mesh_a, func_a + func_b
 
 
