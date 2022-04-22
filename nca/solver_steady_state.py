@@ -125,13 +125,17 @@ class SolverSteadyState:
 
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
-        # TODO: mesh interp
-        self.R_reta_w[:, states] = (
-            self.inv_R0_reta_w[:, states] - self.S_reta_w[:, states] + 1.0j * eta
-        )
-        if not np.all(np.isfinite(self.R_reta_w[:, states])):
-            raise ZeroDivisionError
-        self.R_reta_w[:, states] = 1.0 / self.R_reta_w[:, states]
+        for i in range(self.D):
+            if states[i]:
+                inv_R0 = interp(
+                    self.freq_meshes[i],
+                    self.time_mesh_hybs.adjoint(),
+                    self.inv_R0_reta_w[:, i],
+                )
+                self.R_reta_w[:, i] = inv_R0 - self.S_reta_w[:, i] + 1.0j * eta
+                if not np.all(np.isfinite(self.R_reta_w[:, i])):
+                    raise ZeroDivisionError
+                self.R_reta_w[:, i] = 1.0 / self.R_reta_w[:, i]
 
     def initialize_grea(self, eta=0.0):
         even = self.is_even_state
@@ -320,9 +324,16 @@ class SolverSteadyState:
                     delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
-        self.R_less_w[:, even] = np.imag(
-            1.0 / (self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta))
-        )
+        for i in range(self.D):
+            if even[i]:
+                inv_R0 = interp(
+                    self.freq_meshes[i],
+                    self.time_mesh_hybs.adjoint(),
+                    self.inv_R0_reta_w[:, i],
+                )
+                self.R_less_w[:, i] = np.imag(
+                    1.0 / (inv_R0 + 1.0j * (delta_magn + eta))
+                )
 
         self.normalize_less_w()
 
