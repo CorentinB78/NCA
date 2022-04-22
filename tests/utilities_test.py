@@ -69,6 +69,34 @@ class MeshTest(unittest.TestCase):
         self.assertNotEqual(x, val_unmod[idx])
 
 
+class TestFunctions(unittest.TestCase):
+    def test_product(self):
+        m_a = Mesh(1.0, 1000)
+        m_b = Mesh(3.0, 1000)
+        f_a = np.cos(m_a.values())
+        f_b = np.sin(m_b.values())
+
+        m, f = product_functions(m_a, f_a, m_b, f_b)
+
+        self.assertIs(m, m_a)
+        testing.assert_allclose(
+            f, np.cos(m_a.values()) * np.sin(m_a.values()), atol=1e-5
+        )
+
+    def test_sum(self):
+        m_a = Mesh(1.0, 1000)
+        m_b = Mesh(3.0, 1000)
+        f_a = np.exp(-np.abs(m_a.values()) * 10)
+        f_b = np.sin(m_b.values())
+
+        m, f = sum_functions(m_a, f_a, m_b, f_b)
+
+        self.assertIs(m, m_b)
+        testing.assert_allclose(
+            f, np.sin(m_b.values()) + np.exp(-np.abs(m_b.values()) * 10.0), atol=1e-4
+        )
+
+
 class FourierTest(unittest.TestCase):
     def test_direct(self):
         times = Mesh(100.0, 1001)

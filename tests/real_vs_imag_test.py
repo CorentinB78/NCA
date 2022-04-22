@@ -47,7 +47,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         S_real.greater_loop(eta=0.0, plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
-        dos = fock.get_DOS(0, S_real)
+        freq_mesh, dos = fock.get_DOS(0, S_real)
 
         idx_subset = np.arange(len(taus))[:: len(taus) // 30]
         idx_subset = np.append(idx_subset, len(taus) - 1)
@@ -58,7 +58,7 @@ class TestRealVsImagSolver(unittest.TestCase):
 
         G_real = []
         for tau in taus_subset:
-            G_real.append(tb.gf_tau_from_dos(tau, beta, S_real.freqs, dos))
+            G_real.append(tb.gf_tau_from_dos(tau, beta, freq_mesh.values(), dos))
 
         # ### Plot
         # plt.plot(taus_subset, G_real, "-x", label="real times")
@@ -113,7 +113,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         S_real.greater_loop(eta=0.0, plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
-        dos = fock.get_DOS(0, S_real)
+        freq_mesh, dos = fock.get_DOS(0, S_real)
 
         idx_subset = np.arange(len(taus))[:: len(taus) // 30]
         idx_subset = np.append(idx_subset, len(taus) - 1)
@@ -124,7 +124,7 @@ class TestRealVsImagSolver(unittest.TestCase):
 
         G_real = []
         for tau in taus_subset:
-            G_real.append(tb.gf_tau_from_dos(tau, beta, S_real.freqs, dos))
+            G_real.append(tb.gf_tau_from_dos(tau, beta, freq_mesh.values(), dos))
 
         # ### Plot
         # plt.plot(taus_subset, G_real, "-x", label="real times")

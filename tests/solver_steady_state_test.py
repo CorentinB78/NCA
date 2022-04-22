@@ -49,8 +49,8 @@ class SolverSteadyStateTest(unittest.TestCase):
         w_ref = data[:, 0].real
         R_reta_w_ref = data[:, 1:]
 
-        R_reta_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_reta_w[:, 0])
-        R_reta_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_reta_w[:, 1])
+        R_reta_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_reta_w[:, 0])
+        R_reta_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_reta_w[:, 1])
 
         testing.assert_allclose(R_reta_w_0, R_reta_w_ref[:, 0])
         testing.assert_allclose(R_reta_w_1, R_reta_w_ref[:, 1])
@@ -63,11 +63,11 @@ class SolverSteadyStateTest(unittest.TestCase):
         w_ref = data[:, 0].real
         R_less_w_ref = data[:, 1:]
 
-        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 0])
-        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 1])
+        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_less_w[:, 0])
+        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_less_w[:, 1])
 
-        testing.assert_allclose(R_less_w_0, R_less_w_ref[:, 0])
-        testing.assert_allclose(R_less_w_1, R_less_w_ref[:, 1])
+        testing.assert_allclose(R_less_w_0, R_less_w_ref[:, 0], atol=1e-10)
+        testing.assert_allclose(R_less_w_1, R_less_w_ref[:, 1], atol=1e-10)
 
     def test_sanity_checks(self):
         beta = 3.0
@@ -80,18 +80,27 @@ class SolverSteadyStateTest(unittest.TestCase):
         ### R & S
 
         ### Fourier transforms
-        w_ref, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less, axis=0)
-        testing.assert_allclose(w_ref.values(), S.freqs)
-        testing.assert_allclose(R_less_w_ref, S.R_less_w, atol=1e-4)
+        for i in range(4):
+            w_ref, R_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_less[:, i], axis=0
+            )
+            testing.assert_allclose(w_ref.values(), S.freq_meshes[i].values())
+            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-4)
 
-        _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea, axis=0)
-        testing.assert_allclose(R_grea_w_ref, S.R_grea_w, atol=1e-4)
+            _, R_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_grea[:, i], axis=0
+            )
+            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-4)
 
-        _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less, axis=0)
-        testing.assert_allclose(S_less_w_ref, S.S_less_w, atol=1e-4)
+            _, S_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_less[:, i], axis=0
+            )
+            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-4)
 
-        _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea, axis=0)
-        testing.assert_allclose(S_grea_w_ref, S.S_grea_w, atol=1e-4)
+            _, S_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_grea[:, i], axis=0
+            )
+            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-4)
 
         ### symmetries: diagonal lessers and greaters are pure imaginary
         testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
@@ -100,8 +109,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
 
         ### normalization
-        idx0 = len(S.times) // 2
-        self.assertEqual(S.times[idx0], 0.0)
+        idx0 = S.N // 2
 
         for k in range(4):
             self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
@@ -110,17 +118,17 @@ class SolverSteadyStateTest(unittest.TestCase):
 
         ### Green functions
 
-        G_grea = fock.get_G_grea(0, S)
-        G_less = fock.get_G_less(0, S)
-        Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = fock.get_G_grea(0, S)
+        m_less, G_less = fock.get_G_less(0, S)
+        m_dos, Dos_w = fock.get_DOS(0, S)
 
-        _, G_grea_w = fourier_transform(S.time_mesh, G_grea)
-        _, G_less_w = fourier_transform(S.time_mesh, G_less)
+        m_grea_w, G_grea_w = fourier_transform(m_grea, G_grea)
+        m_less_w, G_less_w = fourier_transform(m_less, G_less)
 
         ### normalization and DoS
         Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
         testing.assert_allclose(Dos_w_ref, Dos_w, atol=1e-8)
-        testing.assert_allclose(np.trapz(x=S.freqs, y=Dos_w), 1.0, atol=1e-6)
+        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-6)
 
         ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
         testing.assert_allclose(G_grea_w.real, 0.0, atol=1e-8)
@@ -128,15 +136,15 @@ class SolverSteadyStateTest(unittest.TestCase):
         testing.assert_array_less(G_grea_w.imag, 1e-8)
         testing.assert_array_less(-G_less_w.imag, 1e-8)
 
-        mask = np.abs(S.freqs - Ef) < 1.0
+        mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(S.freqs[mask], Ef, beta),
+            tb.fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-S.freqs[mask], -Ef, beta),
+            tb.fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 
@@ -276,10 +284,12 @@ class SolverSteadyStateTest(unittest.TestCase):
         )
         G_less_ref = np.conj(G_grea_ref)
 
-        G_grea = np.interp(times_ref, S.times, fock.get_G_grea(0, S))
+        mesh, G_grea = fock.get_G_grea(0, S)
+        G_grea = np.interp(times_ref, mesh.values(), G_grea)
         np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
 
-        G_less = np.interp(times_ref, S.times, fock.get_G_less(0, S))
+        mesh, G_less = fock.get_G_less(0, S)
+        G_less = np.interp(times_ref, mesh.values(), G_less)
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
 
 
@@ -329,18 +339,26 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
         ### R & S
 
         ### Fourier transforms
-        w_ref, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less, axis=0)
-        testing.assert_allclose(w_ref.values(), S.freqs)
-        testing.assert_allclose(R_less_w_ref, S.R_less_w, atol=1e-4)
+        for i in range(3):
+            w_ref, R_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_less[:, i], axis=0
+            )
+            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-4)
 
-        _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea, axis=0)
-        testing.assert_allclose(R_grea_w_ref, S.R_grea_w, atol=1e-4)
+            _, R_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_grea[:, i], axis=0
+            )
+            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-4)
 
-        _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less, axis=0)
-        testing.assert_allclose(S_less_w_ref, S.S_less_w, atol=1e-4)
+            _, S_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_less[:, i], axis=0
+            )
+            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-4)
 
-        _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea, axis=0)
-        testing.assert_allclose(S_grea_w_ref, S.S_grea_w, atol=1e-4)
+            _, S_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_grea[:, i], axis=0
+            )
+            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-4)
 
         ### symmetries: diagonal lessers and greaters are pure imaginary
         testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
@@ -349,8 +367,7 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
         testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
 
         ### normalization
-        idx0 = len(S.times) // 2
-        self.assertEqual(S.times[idx0], 0.0)
+        idx0 = S.N // 2
 
         for k in range(3):
             self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
@@ -359,12 +376,12 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
 
         ### Green functions
 
-        G_grea = fock.get_G_grea(0, S)
-        G_less = fock.get_G_less(0, S)
-        Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = fock.get_G_grea(0, S)
+        m_less, G_less = fock.get_G_less(0, S)
+        m_dos, Dos_w = fock.get_DOS(0, S)
 
-        _, G_grea_w = fourier_transform(S.time_mesh, G_grea)
-        _, G_less_w = fourier_transform(S.time_mesh, G_less)
+        _, G_grea_w = fourier_transform(m_grea, G_grea)
+        _, G_less_w = fourier_transform(m_less, G_less)
 
         ### normalization and DoS
         Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
@@ -377,15 +394,15 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
         testing.assert_array_less(G_grea_w.imag, 1e-8)
         testing.assert_array_less(-G_less_w.imag, 1e-8)
 
-        mask = np.abs(S.freqs - Ef) < 1.0
+        mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(S.freqs[mask], Ef, beta),
+            tb.fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-S.freqs[mask], -Ef, beta),
+            tb.fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 
@@ -436,18 +453,26 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         ### R & S
 
         ### Fourier transforms
-        w_ref, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less, axis=0)
-        testing.assert_allclose(w_ref.values(), S.freqs)
-        testing.assert_allclose(R_less_w_ref, S.R_less_w, atol=1e-4)
+        for i in range(4):
+            w_ref, R_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_less[:, i], axis=0
+            )
+            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-4)
 
-        _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea, axis=0)
-        testing.assert_allclose(R_grea_w_ref, S.R_grea_w, atol=1e-4)
+            _, R_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.R_grea[:, i], axis=0
+            )
+            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-4)
 
-        _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less, axis=0)
-        testing.assert_allclose(S_less_w_ref, S.S_less_w, atol=1e-4)
+            _, S_less_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_less[:, i], axis=0
+            )
+            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-4)
 
-        _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea, axis=0)
-        testing.assert_allclose(S_grea_w_ref, S.S_grea_w, atol=1e-4)
+            _, S_grea_w_ref = fourier_transform(
+                S.time_meshes[i], S.S_grea[:, i], axis=0
+            )
+            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-4)
 
         ### symmetries: diagonal lessers and greaters are pure imaginary
         testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
@@ -456,8 +481,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
 
         ### normalization
-        idx0 = len(S.times) // 2
-        self.assertEqual(S.times[idx0], 0.0)
+        idx0 = S.N // 2
 
         for k in range(4):
             self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
@@ -466,17 +490,17 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
 
         ### Green functions
 
-        G_grea = fock.get_G_grea(0, S)
-        G_less = fock.get_G_less(0, S)
-        Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = fock.get_G_grea(0, S)
+        m_less, G_less = fock.get_G_less(0, S)
+        m_dos, Dos_w = fock.get_DOS(0, S)
 
-        _, G_grea_w = fourier_transform(S.time_mesh, G_grea)
-        _, G_less_w = fourier_transform(S.time_mesh, G_less)
+        _, G_grea_w = fourier_transform(m_grea, G_grea)
+        _, G_less_w = fourier_transform(m_less, G_less)
 
         ### normalization and DoS
         Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
         testing.assert_allclose(Dos_w_ref, Dos_w, atol=1e-8)
-        testing.assert_allclose(np.trapz(x=S.freqs, y=Dos_w), 1.0, atol=1e-6)
+        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-6)
 
         ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
         testing.assert_allclose(G_grea_w.real, 0.0, atol=1e-8)
@@ -484,15 +508,15 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         testing.assert_array_less(G_grea_w.imag, 1e-8)
         testing.assert_array_less(-G_less_w.imag, 1e-8)
 
-        mask = np.abs(S.freqs - Ef) < 1.0
+        mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(S.freqs[mask], Ef, beta),
+            tb.fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-S.freqs[mask], -Ef, beta),
+            tb.fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 
@@ -561,10 +585,12 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         # plt.xlim(-10, 10)
         # plt.show()
 
-        G_grea = np.interp(times_ref, S.times, fock.get_G_grea(0, S))
+        m, G_grea = fock.get_G_grea(0, S)
+        G_grea = np.interp(times_ref, m.values(), G_grea)
         np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 2)
 
-        G_less = np.interp(times_ref, S.times, fock.get_G_less(0, S))
+        m, G_less = fock.get_G_less(0, S)
+        G_less = np.interp(times_ref, m.values(), G_less)
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 2)
 
 

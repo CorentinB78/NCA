@@ -1,5 +1,5 @@
 import numpy as np
-from .utilities import fourier_transform
+from .utilities import fourier_transform, product_functions, sum_functions
 
 
 def is_orb_in_state(orbital, state):
@@ -21,44 +21,54 @@ def states_containing(orbital, nr_orbitals):
     return all_states[contains], all_states[~contains]
 
 
-def greater_gf(orbital, nr_orbitals, time_mesh, R_grea, R_less, energy_shift, Z):
+def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, Z):
     if orbital >= nr_orbitals:
         raise ValueError
 
     states_yes, states_no = states_containing(orbital, nr_orbitals)
-    G_grea = np.sum(
-        R_less[::-1, states_no]
-        * R_grea[:, states_yes]
-        * np.exp(
-            1j
-            * (energy_shift[states_no] - energy_shift[states_yes])
-            * time_mesh.values()[:, None]
-        ),
-        axis=1,
-    )
+
+    mesh = None
+    G_grea = 0.0
+    for i in range(len(states_yes)):
+        s_no, s_yes = states_no[i], states_yes[i]
+        m, gg = product_functions(
+            time_meshes[s_no],
+            R_less[::-1, s_no],
+            time_meshes[s_yes],
+            R_grea[:, s_yes],
+        )
+
+        gg = gg * np.exp(1j * (energy_shift[s_no] - energy_shift[s_yes]) * m.values())
+
+        mesh, G_grea = sum_functions(mesh, G_grea, m, gg)
 
     G_grea *= 1j / Z
-    return G_grea
+    return mesh, G_grea
 
 
-def lesser_gf(orbital, nr_orbitals, time_mesh, R_grea, R_less, energy_shift, Z):
+def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, Z):
     if orbital >= nr_orbitals:
         raise ValueError
 
     states_yes, states_no = states_containing(orbital, nr_orbitals)
-    G_less = np.sum(
-        R_less[:, states_yes]
-        * R_grea[::-1, states_no]
-        * np.exp(
-            1j
-            * (energy_shift[states_no] - energy_shift[states_yes])
-            * time_mesh.values()[:, None]
-        ),
-        axis=1,
-    )
+
+    mesh = None
+    G_less = 0.0
+    for i in range(len(states_yes)):
+        s_no, s_yes = states_no[i], states_yes[i]
+        m, gg = product_functions(
+            time_meshes[s_no],
+            R_grea[::-1, s_no],
+            time_meshes[s_yes],
+            R_less[:, s_yes],
+        )
+
+        gg = gg * np.exp(1j * (energy_shift[s_no] - energy_shift[s_yes]) * m.values())
+
+        mesh, G_less = sum_functions(mesh, G_less, m, gg)
 
     G_less *= -1j / Z
-    return G_less
+    return mesh, G_less
 
 
 class FermionicFockSpace:
@@ -109,7 +119,7 @@ class FermionicFockSpace:
         return greater_gf(
             orbital,
             self.nr_orbitals,
-            solver.time_mesh,
+            solver.time_meshes,
             solver.R_grea,
             solver.R_less,
             solver.energy_shift,
@@ -121,7 +131,7 @@ class FermionicFockSpace:
         return lesser_gf(
             orbital,
             self.nr_orbitals,
-            solver.time_mesh,
+            solver.time_meshes,
             solver.R_grea,
             solver.R_less,
             solver.energy_shift,
@@ -129,22 +139,25 @@ class FermionicFockSpace:
         )
 
     def get_G_grea_w(self, orbital, solver):
-        g = self.get_G_grea(orbital, solver)
-        _, g = fourier_transform(solver.time_mesh, g)
-        return g
+        m, g = self.get_G_grea(orbital, solver)
+        m, g = fourier_transform(m, g)
+        return m, g
 
     def get_G_less_w(self, orbital, solver):
-        g = self.get_G_less(orbital, solver)
-        _, g = fourier_transform(solver.time_mesh, g)
-        return g
+        m, g = self.get_G_less(orbital, solver)
+        m, g = fourier_transform(m, g)
+        return m, g
 
     def get_DOS(self, orbital, solver):
-        """Returns density of states on frequency grid used in solver"""
-        G_less = self.get_G_less(orbital, solver)
-        G_grea = self.get_G_grea(orbital, solver)
+        """Returns density of states"""
+        m, G_less = self.get_G_less(orbital, solver)
+        m2, G_grea = self.get_G_grea(orbital, solver)
+
+        assert m is m2
 
         dos = 1j * (G_grea - G_less) / (2 * np.pi)
-        return np.real(fourier_transform(solver.time_mesh, dos)[1])
+        m, dos = fourier_transform(m, dos)
+        return m, np.real(dos)
 
 
 class AIM_infinite_U(FermionicFockSpace):
@@ -204,26 +217,37 @@ class AIM_infinite_U(FermionicFockSpace):
         if orbital >= self.nr_orbitals:
             raise ValueError
 
-        G_grea = 1j * solver.R_less[::-1, 0] * solver.R_grea[:, 1]
-        G_grea *= np.exp(
-            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * solver.times
+        mesh, G_grea = product_functions(
+            solver.time_meshes[0],
+            solver.R_less[::-1, 0],
+            solver.time_meshes[1],
+            solver.R_grea[:, 1],
+        )
+
+        G_grea *= 1j * np.exp(
+            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * mesh.values()
         )
 
         G_grea /= solver.Z_loc
-        return G_grea
+        return mesh, G_grea
 
     def get_G_less(self, orbital, solver):
         """Returns G^<(t) on time grid used in solver"""
         if orbital >= self.nr_orbitals:
             raise ValueError
 
-        G_less = -1j * solver.R_less[:, 1] * solver.R_grea[::-1, 0]
-        G_less *= np.exp(
-            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * solver.times
+        mesh, G_less = product_functions(
+            solver.time_meshes[1],
+            solver.R_less[:, 1],
+            solver.time_meshes[0],
+            solver.R_grea[::-1, 0],
+        )
+        G_less *= -1j * np.exp(
+            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * mesh.values()
         )
 
         G_less /= solver.Z_loc
-        return G_less
+        return mesh, G_less
 
 
 def report_allclose(a, b, *args, **kwargs):
@@ -244,19 +268,21 @@ def sanity_checks(S, fock=None):
     ### R & S
 
     ### Fourier transforms
-    w_ref, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less, axis=0)
+    for i in range(S.D):
+        w_ref, R_less_w_ref = fourier_transform(
+            S.time_meshes[i], S.R_less[:, i], axis=0
+        )
 
-    report_allclose(w_ref.values(), S.freqs)
-    report_allclose(R_less_w_ref, S.R_less_w, atol=1e-4)
+        report_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-4)
 
-    _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea, axis=0)
-    report_allclose(R_grea_w_ref, S.R_grea_w, atol=1e-4)
+        _, R_grea_w_ref = fourier_transform(S.time_meshes[i], S.R_grea[:, i], axis=0)
+        report_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-4)
 
-    _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less, axis=0)
-    report_allclose(S_less_w_ref, S.S_less_w, atol=1e-4)
+        _, S_less_w_ref = fourier_transform(S.time_meshes[i], S.S_less[:, i], axis=0)
+        report_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-4)
 
-    _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea, axis=0)
-    report_allclose(S_grea_w_ref, S.S_grea_w, atol=1e-4)
+        _, S_grea_w_ref = fourier_transform(S.time_meshes[i], S.S_grea[:, i], axis=0)
+        report_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-4)
 
     ### symmetries: diagonal lessers and greaters are pure imaginary
     report_allclose(S.R_less_w.real, 0.0, atol=1e-8)
@@ -265,7 +291,7 @@ def sanity_checks(S, fock=None):
     report_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
 
     ### normalization
-    idx0 = len(S.times) // 2
+    idx0 = S.N // 2
 
     for k in range(S.D):
         report_allclose(S.R_grea[idx0, k], -1j)
@@ -276,17 +302,17 @@ def sanity_checks(S, fock=None):
     if fock is not None:
 
         for k in range(fock.nr_orbitals):
-            G_grea = fock.get_G_grea(k, S)
-            G_less = fock.get_G_less(k, S)
-            Dos_w = fock.get_DOS(k, S)
+            m_grea, G_grea = fock.get_G_grea(k, S)
+            m_less, G_less = fock.get_G_less(k, S)
+            m_dos, Dos_w = fock.get_DOS(k, S)
 
-            _, G_grea_w = fourier_transform(S.time_mesh, G_grea)
-            _, G_less_w = fourier_transform(S.time_mesh, G_less)
+            _, G_grea_w = fourier_transform(m_grea, G_grea)
+            _, G_less_w = fourier_transform(m_less, G_less)
 
             ### normalization and DoS
             Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
             report_allclose(Dos_w_ref, Dos_w, atol=1e-8)
-            report_allclose(np.trapz(x=S.freqs, y=Dos_w), 1.0, atol=1e-6)
+            report_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-6)
 
             ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
             report_allclose(G_grea_w.real, 0.0, atol=1e-8)

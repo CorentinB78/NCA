@@ -22,7 +22,8 @@ class SolverSteadyState:
         """
         # TODO: sanity checks
 
-        N = len(time_mesh)
+        self.N = len(time_mesh)
+        N = self.N
         self.D = len(local_evol)
         self.Z_loc = self.D
 
@@ -31,8 +32,8 @@ class SolverSteadyState:
         )
 
         self.hybridizations = hybridizations
-        self.time_mesh = time_mesh
-        self.times = self.time_mesh.values()
+        self.time_mesh_hybs = time_mesh
+        self.time_meshes = [time_mesh] * self.D
 
         self.R_less = np.zeros((N, self.D), dtype=complex)
         self.R_grea = np.zeros((N, self.D), dtype=complex)
@@ -40,13 +41,12 @@ class SolverSteadyState:
         self.S_less = np.zeros((N, self.D), dtype=complex)
         self.S_grea = np.zeros((N, self.D), dtype=complex)
 
-        self.freq_mesh = self.time_mesh.adjoint()
-        self.freqs = self.freq_mesh.values()
+        self.freq_meshes = [time_mesh.adjoint()] * self.D
 
         self.inv_R0_reta_w = np.empty((N, self.D), dtype=complex)
         for s, g in enumerate(local_evol):
             if isinstance(g, complex) or isinstance(g, float):
-                self.inv_R0_reta_w[:, s] = self.freqs - g
+                self.inv_R0_reta_w[:, s] = self.time_mesh_hybs.adjoint().values() - g
             else:
                 self.inv_R0_reta_w[:, s] = g
 
@@ -70,13 +70,15 @@ class SolverSteadyState:
     ############# greater ##############
     def go_to_times_grea(self, states):
         """\tilde R^>(w) ---> R^>(t)"""
-        _, self.R_grea[:, states] = inv_fourier_transform(
-            self.freq_mesh, self.R_reta_w[:, states].imag, axis=0
-        )
-        self.R_grea[:, states] *= 2j
+        for i in range(self.D):
+            if states[i]:
+                _, self.R_grea[:, i] = inv_fourier_transform(
+                    self.freq_meshes[i], self.R_reta_w[:, i].imag
+                )
+                self.R_grea[:, i] *= 2j
 
     def normalize_grea(self, states):
-        idx0 = len(self.time_mesh) // 2
+        idx0 = self.N // 2
         self.normalization_error.append(
             np.mean(np.abs(self.R_grea[idx0, states] + 1.0j))
         )
@@ -94,26 +96,42 @@ class SolverSteadyState:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
+                    delta = np.interp(
+                        self.time_meshes[a].values(),
+                        self.time_mesh_hybs.values(),
+                        delta,
+                        left=0.0,
+                        right=0.0,
+                    )
+                    R_grea_b = np.interp(
+                        self.time_meshes[a].values(),
+                        self.time_meshes[b].values(),
+                        self.R_grea[:, b],
+                        left=0.0,
+                        right=0.0,
+                    )
                     self.S_grea[:, a] += (
                         1j
                         * delta[:]
-                        * self.R_grea[:, b]
+                        * R_grea_b
                         * np.exp(
                             1j
                             * (self.energy_shift[a] - self.energy_shift[b])
-                            * self.times
+                            * self.time_meshes[a].values()
                         )
                     )
 
     def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
-        idx0 = len(self.time_mesh) // 2
+        idx0 = self.N // 2
         self.S_reta_w[:idx0, states] = 0.0
         self.S_reta_w[idx0:, states] = self.S_grea[idx0:, states]
         self.S_reta_w[idx0, states] *= 0.5
-        _, self.S_reta_w[:, states] = fourier_transform(
-            self.time_mesh, self.S_reta_w[:, states], axis=0
-        )
+        for i in range(self.D):
+            if states[i]:
+                _, self.S_reta_w[:, i] = fourier_transform(
+                    self.time_meshes[i], self.S_reta_w[:, i], axis=0
+                )
 
     def propagator_grea(self, states, eta=0.0):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
@@ -128,7 +146,7 @@ class SolverSteadyState:
         even = self.is_even_state
 
         delta_magn = 0.0
-        idx0 = len(self.times) // 2
+        idx0 = self.N // 2
 
         for states_a, states_b, delta, _ in self.hybridizations:
             states_a, states_b = np.atleast_1d(states_a, states_b)
@@ -174,11 +192,14 @@ class SolverSteadyState:
     ):
         # TODO: make the first iterations print
         def err_func(R):
-            return np.trapz(np.mean(np.abs(R), axis=1), dx=self.freq_mesh.delta)
+            e = 0.0
+            for i in range(self.D):
+                e += np.trapz(np.abs(R[:, i]), dx=self.freq_meshes[i].delta)
+            return e / self.D
 
         def callback_func(R, n_iter):
             plt.plot(
-                self.freq_mesh.values(),
+                self.freq_meshes[0].values(),
                 -R[:, 0].imag,
                 label=str(n_iter),
             )
@@ -227,9 +248,11 @@ class SolverSteadyState:
     ########## lesser ############
     def go_to_times_less(self, states):
         """R^<(w) ---> R^<(t)"""
-        _, self.R_less[:, states] = inv_fourier_transform(
-            self.freq_mesh, self.R_less_w[:, states], axis=0
-        )
+        for i in range(self.D):
+            if states[i]:
+                _, self.R_less[:, i] = inv_fourier_transform(
+                    self.freq_meshes[i], self.R_less_w[:, i], axis=0
+                )
 
     def self_energy_less(self, states):
         """R^<(t) ---> S^<(t)"""
@@ -243,22 +266,38 @@ class SolverSteadyState:
                         raise RuntimeError(
                             "An hybridization process couples two states of same parity."
                         )
+                    delta = np.interp(
+                        self.time_meshes[a].values(),
+                        self.time_mesh_hybs.values(),
+                        delta,
+                        left=0.0,
+                        right=0.0,
+                    )
+                    R_less_b = np.interp(
+                        self.time_meshes[a].values(),
+                        self.time_meshes[b].values(),
+                        self.R_less[:, b],
+                        left=0.0,
+                        right=0.0,
+                    )
                     self.S_less[:, a] += (
                         -1j
                         * delta[:]
-                        * self.R_less[:, b]
+                        * R_less_b
                         * np.exp(
                             1j
                             * (self.energy_shift[a] - self.energy_shift[b])
-                            * self.times
+                            * self.time_meshes[a].values()
                         )
                     )
 
     def back_to_freqs_less(self, states):
         """S^<(t) ---> S^<(w)"""
-        _, self.S_less_w[:, states] = fourier_transform(
-            self.time_mesh, self.S_less[:, states], axis=0
-        )
+        for i in range(self.D):
+            if states[i]:
+                _, self.S_less_w[:, i] = fourier_transform(
+                    self.time_meshes[i], self.S_less[:, i]
+                )
 
     def propagator_less(self, states):
         """S^<(w) ---> R^<(w)"""
@@ -269,7 +308,7 @@ class SolverSteadyState:
         )
 
     def normalize_less_t(self):
-        idx0 = len(self.time_mesh) // 2
+        idx0 = self.N // 2
         Z = 1j * np.sum(self.R_less[idx0])
         if Z == 0.0:
             print(self.R_less[idx0])
@@ -278,7 +317,10 @@ class SolverSteadyState:
         self.R_less *= self.Z_loc / Z
 
     def normalize_less_w(self):
-        Z = 1j * np.sum(np.trapz(x=self.freqs, y=self.R_less_w, axis=0)) / (2 * np.pi)
+        Z = 0.0
+        for i in range(self.D):
+            Z += np.trapz(x=self.freq_meshes[i].values(), y=self.R_less_w[:, i])
+        Z *= 1j / (2 * np.pi)
         if Z == 0.0:
             raise ZeroDivisionError
         self.R_less_w *= self.Z_loc / Z
@@ -288,7 +330,7 @@ class SolverSteadyState:
         even = self.is_even_state
 
         delta_magn = 0.0
-        idx0 = len(self.times) // 2
+        idx0 = self.N // 2
 
         for states_a, states_b, _, delta in self.hybridizations:
             states_a, states_b = np.atleast_1d(states_a, states_b)
@@ -329,11 +371,14 @@ class SolverSteadyState:
 
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
         def err_func(R):
-            return np.trapz(np.mean(np.abs(R), axis=1), dx=self.freq_mesh.delta)
+            e = 0.0
+            for i in range(self.D):
+                e += np.trapz(np.abs(R[:, i]), dx=self.freq_meshes[i].delta)
+            return e / self.D
 
         def callback_func(R, n_iter):
             plt.plot(
-                self.freq_mesh.values(),
+                self.freq_meshes[0].values(),
                 R[:, 0].imag,
                 label=str(n_iter),
                 color="b" if n_iter % 2 else "r",

@@ -32,9 +32,10 @@ class TestGreenFunction(unittest.TestCase):
         R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
         R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
 
-        G = greater_gf(0, 2, mesh, R_grea, R_less, np.zeros(4), 3.0)
+        m, G = greater_gf(0, 2, [mesh] * 4, R_grea, R_less, np.zeros(4), 3.0)
         G_ref = 1j * (np.cos(-x - 0.7) * np.sin(x) + np.cos(-x) * np.sin(x + 0.5)) / 3.0
 
+        self.assertIs(m, mesh)
         testing.assert_allclose(G, G_ref)
 
     def test_lesser(self):
@@ -43,11 +44,12 @@ class TestGreenFunction(unittest.TestCase):
         R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
         R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
 
-        G = lesser_gf(0, 2, mesh, R_grea, R_less, np.zeros(4), 3.0)
+        m, G = lesser_gf(0, 2, [mesh] * 4, R_grea, R_less, np.zeros(4), 3.0)
         G_ref = (
             -1j * (np.sin(x - 0.7) * np.cos(-x) + np.sin(x) * np.cos(-x + 0.5)) / 3.0
         )
 
+        self.assertIs(m, mesh)
         testing.assert_allclose(G, G_ref)
 
 
