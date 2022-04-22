@@ -378,7 +378,7 @@ class SolverSteadyState:
             alpha=alpha,
         )
 
-        self.go_to_times_less(range(self.D))
+        self.go_to_times_less(np.ones(self.D, dtype=bool))
 
         if plot:
             plt.legend()
