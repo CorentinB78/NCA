@@ -445,6 +445,52 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
 
         return fock, S
 
+    def test_compare_types_of_input(self):
+        time_mesh = Mesh(10.0, 100)
+        w = time_mesh.adjoint().values()
+        H_loc = np.array([0.0 - 0.1j, 2.0, 3.0 - 0.5j, -1.0])
+        inv_R0 = [w + 0.1j, w - 2.0, w - 3.0 + 0.5j, w + 1.0]
+
+        delta_grea = np.sin(w) + 1j * np.cos(w)
+        delta_less = np.cos(w) + 1j * np.cos(w)
+
+        fock = FermionicFockSpace(["up", "dn"])
+        fock.add_bath(0, delta_grea, delta_less)
+        fock.add_bath(1, delta_grea, delta_less)
+        hybs = fock.generate_hybridizations()
+
+        S_H = SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
+        S_R = SolverSteadyState(inv_R0, time_mesh, hybs, [0, 3])
+
+        testing.assert_allclose(S_H.inv_R0_reta_w, S_R.inv_R0_reta_w)
+
+        S_H.initialize_grea()
+        S_R.initialize_grea()
+
+        testing.assert_allclose(S_H.R_reta_w, S_R.R_reta_w)
+
+        S_H.fixed_pt_function_grea(S_H.R_reta_w)
+        S_R.fixed_pt_function_grea(S_R.R_reta_w)
+
+        testing.assert_allclose(S_H.R_reta_w, S_R.R_reta_w)
+        testing.assert_allclose(S_H.R_grea, S_R.R_grea)
+        testing.assert_allclose(S_H.S_reta_w, S_R.S_reta_w)
+        testing.assert_allclose(S_H.S_grea, S_R.S_grea)
+
+        S_H.initialize_less()
+        S_R.initialize_less()
+
+        testing.assert_allclose(S_H.R_less_w, S_R.R_less_w)
+        testing.assert_array_equal(S_H.R_less_w, S_R.R_less_w)
+
+        S_H.fixed_pt_function_less(S_H.R_less_w)
+        S_R.fixed_pt_function_less(S_R.R_less_w)
+
+        testing.assert_allclose(S_H.R_less_w, S_R.R_less_w)
+        testing.assert_allclose(S_H.R_less, S_R.R_less)
+        testing.assert_allclose(S_H.S_less_w, S_R.S_less_w)
+        testing.assert_allclose(S_H.S_less, S_R.S_less)
+
     def test_sanity_checks(self):
         beta = 3.0
         Ef = 0.3
