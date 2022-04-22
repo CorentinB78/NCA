@@ -112,6 +112,8 @@ class Mesh:
 
 
 def interp(mesh_a, mesh_b, func_b):
+    if mesh_a is mesh_b:
+        return func_b
     return np.interp(mesh_a.values(), mesh_b.values(), func_b, left=0.0, right=0.0)
 
 
