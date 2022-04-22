@@ -1,6 +1,8 @@
 import unittest
-from nca.fock_space import is_orb_in_state, states_containing
+from nca.fock_space import is_orb_in_state, states_containing, greater_gf, lesser_gf
+from nca.utilities import Mesh
 import numpy as np
+from numpy import testing
 
 
 class TestOrbitals(unittest.TestCase):
@@ -21,6 +23,32 @@ class TestOrbitals(unittest.TestCase):
 
         np.testing.assert_array_equal(states_containing(0, N), ([1, 3], [0, 2]))
         np.testing.assert_array_equal(states_containing(1, N), ([2, 3], [0, 1]))
+
+
+class TestGreenFunction(unittest.TestCase):
+    def test_greater(self):
+        mesh = Mesh(10.0, 100)
+        x = mesh.values()
+        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
+        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
+
+        G = greater_gf(0, 2, mesh, R_grea, R_less, np.zeros(4), 3.0)
+        G_ref = 1j * (np.cos(-x - 0.7) * np.sin(x) + np.cos(-x) * np.sin(x + 0.5)) / 3.0
+
+        testing.assert_allclose(G, G_ref)
+
+    def test_lesser(self):
+        mesh = Mesh(10.0, 100)
+        x = mesh.values()
+        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
+        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
+
+        G = lesser_gf(0, 2, mesh, R_grea, R_less, np.zeros(4), 3.0)
+        G_ref = (
+            -1j * (np.sin(x - 0.7) * np.cos(-x) + np.sin(x) * np.cos(-x + 0.5)) / 3.0
+        )
+
+        testing.assert_allclose(G, G_ref)
 
 
 if __name__ == "__main__":

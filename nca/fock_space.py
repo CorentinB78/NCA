@@ -21,6 +21,46 @@ def states_containing(orbital, nr_orbitals):
     return all_states[contains], all_states[~contains]
 
 
+def greater_gf(orbital, nr_orbitals, time_mesh, R_grea, R_less, energy_shift, Z):
+    if orbital >= nr_orbitals:
+        raise ValueError
+
+    states_yes, states_no = states_containing(orbital, nr_orbitals)
+    G_grea = np.sum(
+        R_less[::-1, states_no]
+        * R_grea[:, states_yes]
+        * np.exp(
+            1j
+            * (energy_shift[states_no] - energy_shift[states_yes])
+            * time_mesh.values()[:, None]
+        ),
+        axis=1,
+    )
+
+    G_grea *= 1j / Z
+    return G_grea
+
+
+def lesser_gf(orbital, nr_orbitals, time_mesh, R_grea, R_less, energy_shift, Z):
+    if orbital >= nr_orbitals:
+        raise ValueError
+
+    states_yes, states_no = states_containing(orbital, nr_orbitals)
+    G_less = np.sum(
+        R_less[:, states_yes]
+        * R_grea[::-1, states_no]
+        * np.exp(
+            1j
+            * (energy_shift[states_no] - energy_shift[states_yes])
+            * time_mesh.values()[:, None]
+        ),
+        axis=1,
+    )
+
+    G_less *= -1j / Z
+    return G_less
+
+
 class FermionicFockSpace:
     # TODO: method for list of even states
     def __init__(self, orbital_names):
@@ -66,43 +106,27 @@ class FermionicFockSpace:
 
     def get_G_grea(self, orbital, solver):
         """Returns G^>(t) on time grid used in solver"""
-        if orbital >= self.nr_orbitals:
-            raise ValueError
-
-        states_yes, states_no = states_containing(orbital, self.nr_orbitals)
-        G_grea = np.sum(
-            solver.R_less[::-1, states_no]
-            * solver.R_grea[:, states_yes]
-            * np.exp(
-                1j
-                * (solver.energy_shift[states_no] - solver.energy_shift[states_yes])
-                * solver.times[:, None]
-            ),
-            axis=1,
+        return greater_gf(
+            orbital,
+            self.nr_orbitals,
+            solver.time_mesh,
+            solver.R_grea,
+            solver.R_less,
+            solver.energy_shift,
+            solver.Z_loc,
         )
-
-        G_grea *= 1j / solver.Z_loc
-        return G_grea
 
     def get_G_less(self, orbital, solver):
         """Returns G^<(t) on time grid used in solver"""
-        if orbital >= self.nr_orbitals:
-            raise ValueError
-
-        states_yes, states_no = states_containing(orbital, self.nr_orbitals)
-        G_less = np.sum(
-            solver.R_less[:, states_yes]
-            * solver.R_grea[::-1, states_no]
-            * np.exp(
-                1j
-                * (solver.energy_shift[states_no] - solver.energy_shift[states_yes])
-                * solver.times[:, None]
-            ),
-            axis=1,
+        return lesser_gf(
+            orbital,
+            self.nr_orbitals,
+            solver.time_mesh,
+            solver.R_grea,
+            solver.R_less,
+            solver.energy_shift,
+            solver.Z_loc,
         )
-
-        G_less *= -1j / solver.Z_loc
-        return G_less
 
     def get_G_grea_w(self, orbital, solver):
         g = self.get_G_grea(orbital, solver)
