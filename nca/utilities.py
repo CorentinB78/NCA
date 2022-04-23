@@ -1,7 +1,8 @@
 import numpy as np
 from numpy import fft
-from scipy import integrate
+from scipy import integrate, interpolate
 import toolbox as tb
+from matplotlib import pyplot as plt
 
 
 def _next_regular(target):
@@ -114,10 +115,36 @@ class Mesh:
         return self.nr_samples
 
 
-def interp(mesh_a, mesh_b, func_b):
+def interp(mesh_a, mesh_b, func_b, kind="linear"):
     if mesh_a is mesh_b:
         return func_b
-    return np.interp(mesh_a.values(), mesh_b.values(), func_b, left=0.0, right=0.0)
+    return interpolate.interp1d(
+        mesh_b.values(),
+        func_b,
+        kind=kind,
+        assume_sorted=True,
+        copy=False,
+        bounds_error=False,
+        fill_value=0.0,
+    )(mesh_a.values())
+
+
+def checked_interp(mesh_a, mesh_b, func_b, kind="cubic", tol=1e-3):
+    if mesh_a is mesh_b:
+        return func_b
+    mesh_a_half = Mesh(
+        mesh_a.xmax, 2 * (mesh_a.nr_samples // 4) + 1, adjust_nr_samples=False
+    )
+
+    vals1 = interp(mesh_a, mesh_b, func_b, kind=kind)
+    vals2 = interp(mesh_a_half, mesh_b, func_b, kind=kind)
+    check = interp(mesh_a, mesh_a_half, vals2, kind="linear")
+
+    err = np.trapz(np.abs(check - vals1), dx=mesh_a.delta)
+    if err > tol:
+        print(f"/!\ Low number of samples for this interpolation: err={err}")
+
+    return vals1
 
 
 def product_functions(mesh_a, func_a, mesh_b, func_b):
@@ -164,7 +191,6 @@ def inv_fourier_transform(mesh, f, axis=-1):
 def planck_taper_window(mesh, W, eps):
     Wp = W + eps / 2.0
     Wm = W - eps / 2.0
-    assert Wp < mesh.xmax
     assert Wm > 0.0
     out = np.empty(len(mesh))
     for k, x in enumerate(mesh.values()):

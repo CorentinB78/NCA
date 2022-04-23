@@ -1,6 +1,7 @@
 import toolbox as tb
 import numpy as np
 from .utilities import *
+from matplotlib import pyplot as plt
 
 
 def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
@@ -33,56 +34,83 @@ def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
 
 
 def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
+    """
+    Lesser and Greater hybridization funcitons of bath with semicircular DOS.
 
-    big_freq_mesh = time_mesh.adjoint()
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
 
-    assert big_freq_mesh.xmax >= 10 * D
-    assert big_freq_mesh.delta <= 0.1 * D
-    assert big_freq_mesh.delta <= 0.1 / beta
+    Returns:
+        delta_less, delta_grea
+    """
 
-    ww = big_freq_mesh.values()
+    dw = D
+    if np.abs(Ef) < D + 4.0 / beta:
+        dw = min(dw, 1.0 / beta)
+    dw = dw / 1000.0
+    wmax = 100.0 * D
+    N = 2 * round(wmax / dw) + 1
+    freq_mesh = Mesh(wmax, N, pt_on_value=D - wmax / (N - 1), adjust_nr_samples=False)
+
+    ww = freq_mesh.values()
     dos = np.zeros(len(ww), dtype=float)
     for k, w in enumerate(ww):
         if np.abs(w) <= D:
             dos[k] = np.sqrt(D**2 - (w) ** 2) / D**2  # norm = pi/2
 
     less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
-    grea = 2j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * D * Gamma
+    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
 
-    _, delta_less = inv_fourier_transform(big_freq_mesh, less)
-    _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)
+    time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
+    time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
+
+    delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
+    delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
 
     return delta_less, delta_grea
 
 
-def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh, W=None, eps=None):
+def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh):
+    """
+    Lesser and Greater hybridization funcitons of bath with lorentzian DOS.
 
-    # wmax = 10 * D
-    # dw = min(0.1 * D, 0.1 / beta)
-    # n = max(int(2 * wmax / dw), 10001)
-    # n = max(n, int(time_mesh.xmax * wmax))
-    # big_freq_mesh = Mesh(wmax, n if n % 2 == 1 else n + 1)
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
 
-    big_freq_mesh = time_mesh.adjoint()
+    Returns:
+        delta_less, delta_grea
+    """
 
-    assert big_freq_mesh.delta <= 0.1 * D
-    assert big_freq_mesh.delta <= 0.1 / beta
+    dw = D
+    if np.abs(Ef) < 10 * D:
+        dw = min(dw, 1.0 / beta)
+    dw = dw / 100.0
+    wmax = D * 1000.0
+    N = 2 * round(wmax / dw) + 1
 
-    ww = big_freq_mesh.values()
+    if np.abs(Ef) < 10 * D:
+        freq_mesh = Mesh(wmax, N, pt_on_value=Ef)
+    else:
+        freq_mesh = Mesh(wmax, N)
+
+    ww = freq_mesh.values()
     dos = D / ((ww) ** 2 + D**2) / np.pi  # norm = 1
 
-    if W is not None:
-        if eps is None:
-            eps = W / 100.0
-        assert big_freq_mesh.xmax > W + eps / 2.0
-        window = planck_taper_window(big_freq_mesh, W, eps)
-        dos *= window
-        dos /= np.trapz(dos, dx=big_freq_mesh.delta)
-
     less = 2j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
-    grea = 2j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * np.pi * D * Gamma
+    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * np.pi * D * Gamma
 
-    _, delta_less = inv_fourier_transform(big_freq_mesh, less)
-    _, delta_grea = inv_fourier_transform(big_freq_mesh, grea)
+    time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
+    time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
+
+    delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
+    delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
 
     return delta_less, delta_grea

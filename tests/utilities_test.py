@@ -86,6 +86,42 @@ class MeshTest(unittest.TestCase):
         self.assertAlmostEqual(m.delta * m_adj.delta, 2 * np.pi / L)
 
 
+class TestInterp(unittest.TestCase):
+    def test_linear_complex(self):
+        x = Mesh(10, 1000)
+
+        def f(x):
+            return np.cos(x) + 1j * np.sin(x + 0.5)
+
+        x2 = Mesh(7.0, 10)
+        y2 = interp(x2, x, f(x.values()), kind="linear")
+
+        testing.assert_allclose(y2, f(x2.values()), atol=1e-4)
+
+    def test_cubic_complex(self):
+        x = Mesh(10, 100)
+
+        def f(x):
+            return np.cos(x) + 1j * np.sin(x + 0.5)
+
+        x2 = Mesh(7.0, 10)
+        y2 = interp(x2, x, f(x.values()), kind="cubic")
+
+        testing.assert_allclose(y2, f(x2.values()), atol=1e-4)
+
+    def test_extrapol(self):
+        x = Mesh(10.0, 100)
+
+        def f(x):
+            return np.cos(x) + 1j * np.sin(x + 0.5)
+
+        x2 = Mesh(15.0, 10)
+        y2 = interp(x2, x, f(x.values()))
+        mask = np.abs(x2.values()) > 10.0
+
+        testing.assert_array_equal(y2[mask], 0.0)
+
+
 class TestFunctions(unittest.TestCase):
     def test_product(self):
         m_a = Mesh(1.0, 1000)
