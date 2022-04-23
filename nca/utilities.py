@@ -66,8 +66,10 @@ def next_odd_regular(target):
 
 
 class Mesh:
-    def __init__(self, xmax, nr_samples, pt_on_value=False):
-        nr_samples = next_odd_regular(nr_samples)
+    def __init__(self, xmax, nr_samples, pt_on_value=False, adjust_nr_samples=True):
+        if adjust_nr_samples:
+            nr_samples = next_odd_regular(nr_samples)
+
         if nr_samples % 2 != 1:
             raise ValueError("nr of samples must be odd.")
 
@@ -99,6 +101,7 @@ class Mesh:
         out = Mesh(
             2 * np.pi * (self.nr_samples - 1) / (2 * self.delta * self.nr_samples),
             self.nr_samples,
+            adjust_nr_samples=False,
         )
 
         out.pt_on_value = self.pt_on_value

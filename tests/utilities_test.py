@@ -68,6 +68,23 @@ class MeshTest(unittest.TestCase):
         idx = np.argmin(np.abs(val_unmod - x))
         self.assertNotEqual(x, val_unmod[idx])
 
+    def test_no_adjust(self):
+
+        # even mesh
+        with self.assertRaises(ValueError):
+            m = Mesh(10.0, 100, adjust_nr_samples=False)
+
+        # given length
+        m = Mesh(10.0, 101, adjust_nr_samples=False)
+        self.assertEqual(len(m), 101)
+
+        # adjoint
+        m_adj = m.adjoint()
+        L = len(m)
+        self.assertEqual(L, len(m_adj))
+        self.assertAlmostEqual(m_adj.xmax / m_adj.delta, m.xmax / m.delta)
+        self.assertAlmostEqual(m.delta * m_adj.delta, 2 * np.pi / L)
+
 
 class TestFunctions(unittest.TestCase):
     def test_product(self):
