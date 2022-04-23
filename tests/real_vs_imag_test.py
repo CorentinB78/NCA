@@ -33,9 +33,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
 
-        delta_less, delta_grea = nca.make_Delta_semicirc(
-            Gamma, D, 0.0, beta, 0.0, time_mesh
-        )
+        delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
         fock = nca.FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)
@@ -99,9 +97,7 @@ class TestRealVsImagSolver(unittest.TestCase):
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
 
-        delta_less, delta_grea = nca.make_Delta_semicirc(
-            Gamma, D, 0.0, beta, 0.0, time_mesh
-        )
+        delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
         fock = nca.FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)

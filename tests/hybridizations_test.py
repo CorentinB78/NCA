@@ -14,7 +14,7 @@ class HybridizationTest(unittest.TestCase):
         D = 2.0
         beta = 5.0
         mu = 0.2
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, 0.0, beta, mu, t_mesh)
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, mu, t_mesh)
 
         w_mesh, delta_grea_w = fourier_transform(t_mesh, delta_grea)
         w_mesh, delta_less_w = fourier_transform(t_mesh, delta_less)
@@ -53,7 +53,7 @@ class HybridizationTest(unittest.TestCase):
         D = 2.0
         beta = 5.0
         mu = 0.2
-        delta_less, delta_grea = make_Delta_lorentzian(Gamma, D, 0.0, beta, mu, t_mesh)
+        delta_less, delta_grea = make_Delta_lorentzian(Gamma, D, beta, mu, t_mesh)
 
         w_mesh, delta_grea_w = fourier_transform(t_mesh, delta_grea)
         w_mesh, delta_less_w = fourier_transform(t_mesh, delta_less)

@@ -32,19 +32,19 @@ def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
     return delta
 
 
-def make_Delta_semicirc(Gamma, D, E0, beta, Ef, time_mesh):
+def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
 
     big_freq_mesh = time_mesh.adjoint()
 
-    assert big_freq_mesh.xmax >= 10 * D + E0
+    assert big_freq_mesh.xmax >= 10 * D
     assert big_freq_mesh.delta <= 0.1 * D
     assert big_freq_mesh.delta <= 0.1 / beta
 
     ww = big_freq_mesh.values()
     dos = np.zeros(len(ww), dtype=float)
     for k, w in enumerate(ww):
-        if np.abs(w - E0) <= D:
-            dos[k] = np.sqrt(D ** 2 - (w - E0) ** 2) / D ** 2  # norm = pi/2
+        if np.abs(w) <= D:
+            dos[k] = np.sqrt(D**2 - (w) ** 2) / D**2  # norm = pi/2
 
     less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
     grea = 2j * dos * (tb.fermi(ww, Ef, beta) - 1.0) * D * Gamma
@@ -55,7 +55,7 @@ def make_Delta_semicirc(Gamma, D, E0, beta, Ef, time_mesh):
     return delta_less, delta_grea
 
 
-def make_Delta_lorentzian(Gamma, D, E0, beta, Ef, time_mesh, W=None, eps=None):
+def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh, W=None, eps=None):
 
     # wmax = 10 * D
     # dw = min(0.1 * D, 0.1 / beta)
@@ -69,7 +69,7 @@ def make_Delta_lorentzian(Gamma, D, E0, beta, Ef, time_mesh, W=None, eps=None):
     assert big_freq_mesh.delta <= 0.1 / beta
 
     ww = big_freq_mesh.values()
-    dos = D / ((ww - E0) ** 2 + D ** 2) / np.pi  # norm = 1
+    dos = D / ((ww) ** 2 + D**2) / np.pi  # norm = 1
 
     if W is not None:
         if eps is None:

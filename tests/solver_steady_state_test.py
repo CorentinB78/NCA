@@ -23,10 +23,9 @@ class SolverSteadyStateTest(unittest.TestCase):
         beta = 3.0
         Ef = 0.3
         D = 6.0
-        E0 = 0.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
         fock = FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)
@@ -250,9 +249,7 @@ class SolverSteadyStateTest(unittest.TestCase):
         ### basis: 0, up, dn, updn
         H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
 
-        delta_less, delta_grea = make_Delta_semicirc(
-            Gamma, D, 0.0, beta, 0.0, time_mesh
-        )
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
         fock = FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)
@@ -309,10 +306,9 @@ class SolverSteadyStateInfiniteUTest(unittest.TestCase):
         beta = 3.0
         Ef = 0.3
         D = 6.0
-        E0 = 0.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
         fock = AIM_infinite_U()
         fock.add_bath(0, delta_grea, delta_less)
@@ -426,10 +422,9 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
         beta = 3.0
         Ef = 0.3
         D = 6.0
-        E0 = 0.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
         fock = FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)
@@ -584,9 +579,7 @@ class SolverSteadyStateDysonTest(unittest.TestCase):
             + 2j * np.pi / decay_t
         )
 
-        delta_less, delta_grea = make_Delta_semicirc(
-            Gamma, D, 0.0, beta, 0.0, time_mesh
-        )
+        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
         fock = FermionicFockSpace(["up", "dn"])
         fock.add_bath(0, delta_grea, delta_less)
