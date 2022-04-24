@@ -54,6 +54,14 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
     dw = dw / 1000.0
     wmax = 100.0 * D
     N = 2 * round(wmax / dw) + 1
+
+    if N >= 1e7:
+        print("/!\ [Semicirc] Large number of samples required")
+        r = N * 1e-7
+        dw *= np.sqrt(r)
+        wmax /= np.sqrt(r)
+        N = 2 * round(wmax / dw) + 1
+
     freq_mesh = Mesh(wmax, N, pt_on_value=D - wmax / (N - 1), adjust_nr_samples=False)
 
     ww = freq_mesh.values()
@@ -95,6 +103,13 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh):
     dw = dw / 100.0
     wmax = D * 1000.0
     N = 2 * round(wmax / dw) + 1
+
+    if N >= 1e7:
+        print("/!\ [Lorentzian] Large number of samples required")
+        r = N * 1e-7
+        dw *= np.sqrt(r)
+        wmax /= np.sqrt(r)
+        N = 2 * round(wmax / dw) + 1
 
     if np.abs(Ef) < 10 * D:
         freq_mesh = Mesh(wmax, N, pt_on_value=Ef)
