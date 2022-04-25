@@ -33,7 +33,7 @@ def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
     return delta
 
 
-def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
+def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
     """
     Lesser and Greater hybridization funcitons of bath with semicircular DOS.
 
@@ -51,7 +51,7 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
     dw = D
     if np.abs(Ef) < D + 4.0 / beta:
         dw = min(dw, 1.0 / beta)
-    dw = dw / 1000.0
+    dw = dw / 100.0
     wmax = 100.0 * D
     N = 2 * round(wmax / dw) + 1
 
@@ -76,13 +76,16 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
     time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
     time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
 
+    if time_mesh is None:
+        return time_mesh_comp, delta_less, delta_grea
+
     delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
     delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
 
     return delta_less, delta_grea
 
 
-def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh):
+def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
     """
     Lesser and Greater hybridization funcitons of bath with lorentzian DOS.
 
@@ -101,7 +104,7 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh):
     if np.abs(Ef) < 10 * D:
         dw = min(dw, 1.0 / beta)
     dw = dw / 100.0
-    wmax = D * 1000.0
+    wmax = D * 100.0
     N = 2 * round(wmax / dw) + 1
 
     if N >= 1e7:
@@ -124,6 +127,9 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh):
 
     time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
     time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
+
+    if time_mesh is None:
+        return time_mesh_comp, delta_less, delta_grea
 
     delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
     delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
