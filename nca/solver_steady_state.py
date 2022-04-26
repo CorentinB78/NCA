@@ -33,6 +33,7 @@ class SolverSteadyState:
 
         self.hybridizations = hybridizations
         self.time_mesh_hybs = time_mesh
+        self.freq_mesh_hybs = time_mesh.adjoint()
         self.time_meshes = [time_mesh] * self.D
 
         self.R_less = np.zeros((N, self.D), dtype=complex)
@@ -41,12 +42,12 @@ class SolverSteadyState:
         self.S_less = np.zeros((N, self.D), dtype=complex)
         self.S_grea = np.zeros((N, self.D), dtype=complex)
 
-        self.freq_meshes = [time_mesh.adjoint()] * self.D
+        self.freq_meshes = [self.freq_mesh_hybs] * self.D
 
         self.inv_R0_reta_w = np.empty((N, self.D), dtype=complex)
         for s, g in enumerate(local_evol):
             if isinstance(g, complex) or isinstance(g, float):
-                self.inv_R0_reta_w[:, s] = self.time_mesh_hybs.adjoint().values() - g
+                self.inv_R0_reta_w[:, s] = self.freq_mesh_hybs.values() - g
             else:
                 self.inv_R0_reta_w[:, s] = g
 
@@ -129,7 +130,7 @@ class SolverSteadyState:
             if states[i]:
                 inv_R0 = interp(
                     self.freq_meshes[i],
-                    self.time_mesh_hybs.adjoint(),
+                    self.freq_mesh_hybs,
                     self.inv_R0_reta_w[:, i],
                 )
                 self.R_reta_w[:, i] = inv_R0 - self.S_reta_w[:, i] + 1.0j * eta
@@ -240,6 +241,12 @@ class SolverSteadyState:
         dw = np.sqrt(12 * tol_delta / np.max(der2))
         print(f"Max time advised: {np.pi / dw}")
 
+    def get_normalization_error(self):
+        norm = np.empty(self.D, dtype=complex)
+        for i in range(self.D):
+            norm[i] = np.trapz(self.R_reta_w[:, i], dx=self.freq_meshes[i].delta)
+        return np.abs(norm + 1j * np.pi)
+
     ########## lesser ############
     def go_to_times_less(self, states):
         """R^<(w) ---> R^<(t)"""
@@ -328,7 +335,7 @@ class SolverSteadyState:
             if even[i]:
                 inv_R0 = interp(
                     self.freq_meshes[i],
-                    self.time_mesh_hybs.adjoint(),
+                    self.freq_mesh_hybs,
                     self.inv_R0_reta_w[:, i],
                 )
                 self.R_less_w[:, i] = np.imag(
