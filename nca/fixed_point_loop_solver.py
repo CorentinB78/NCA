@@ -33,6 +33,9 @@ def fixed_point_loop(
         else:
             err = err_func(x - old_x)
 
+        if not np.isfinite(err):
+            raise RuntimeError(f"Error function returned not finite value: {err}")
+
         if verbose:
             print(n_iter, err)
 
