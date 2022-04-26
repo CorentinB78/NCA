@@ -80,9 +80,6 @@ class SolverSteadyState:
 
     def normalize_grea(self, states):
         idx0 = self.N // 2
-        self.normalization_error.append(
-            np.mean(np.abs(self.R_grea[idx0, states] + 1.0j))
-        )
         self.R_grea[:, states] /= 1.0j * self.R_grea[idx0, states]
 
     def self_energy_grea(self, states):
@@ -171,6 +168,8 @@ class SolverSteadyState:
         self.self_energy_grea(even)
         self.back_to_freqs_grea(even)
         self.propagator_grea(even, eta=eta)
+
+        self.normalization_error.append(self.get_normalization_error())
 
         self.nr_grea_feval += 2
 

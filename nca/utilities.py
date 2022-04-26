@@ -115,9 +115,11 @@ class Mesh:
         return self.nr_samples
 
 
-def interp(mesh_a, mesh_b, func_b, kind="linear"):
+def interp(mesh_a, mesh_b, func_b, kind="linear", allow=False):
     if mesh_a is mesh_b:
         return func_b
+    if not allow:
+        raise RuntimeError
     return interpolate.interp1d(
         mesh_b.values(),
         func_b,
@@ -136,9 +138,9 @@ def checked_interp(mesh_a, mesh_b, func_b, kind="cubic", tol=1e-3):
         mesh_a.xmax, 2 * (mesh_a.nr_samples // 4) + 1, adjust_nr_samples=False
     )
 
-    vals1 = interp(mesh_a, mesh_b, func_b, kind=kind)
-    vals2 = interp(mesh_a_half, mesh_b, func_b, kind=kind)
-    check = interp(mesh_a, mesh_a_half, vals2, kind="linear")
+    vals1 = interp(mesh_a, mesh_b, func_b, kind=kind, allow=True)
+    vals2 = interp(mesh_a_half, mesh_b, func_b, kind=kind, allow=True)
+    check = interp(mesh_a, mesh_a_half, vals2, kind="linear", allow=True)
 
     err = np.trapz(np.abs(check - vals1), dx=mesh_a.delta)
     if err > tol:
