@@ -6,8 +6,8 @@ import toolbox as tb
 import nca
 
 
-class TestRealVsImagSolver(unittest.TestCase):
-    def test_params1(self):
+class TestParams1(unittest.TestCase):
+    def test_compare(self):
         beta = 10.0  # Inverse temperature
         mu = -1.0  # Chemical potential
         U = 30.0  # On-site density-density interaction
@@ -71,7 +71,9 @@ class TestRealVsImagSolver(unittest.TestCase):
         ### Compare
         testing.assert_allclose(G_real, G_imag[idx_subset], atol=1e-2)
 
-    def test_params_inchworm(self):
+
+class TestParamsInchworm(unittest.TestCase):
+    def test_compare(self):
         beta = 5.0  # Inverse temperature
         mu = 2.0  # Chemical potential
         U = 5.0  # On-site density-density interaction

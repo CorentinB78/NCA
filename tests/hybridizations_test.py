@@ -7,7 +7,7 @@ import toolbox as tb
 from nca.hybridizations import *
 
 
-class HybridizationTest(unittest.TestCase):
+class TestHybridization(unittest.TestCase):
     def test_semi_circ(self):
         t_mesh = Mesh(5000.0, 1000000)
         Gamma = 3.0
