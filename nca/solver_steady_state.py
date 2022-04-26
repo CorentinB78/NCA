@@ -159,12 +159,12 @@ class SolverSteadyState:
         odd = ~self.is_even_state
 
         self.go_to_times_grea(even)
-        self.normalize_grea(even)
+        # self.normalize_grea(even)
         self.self_energy_grea(odd)
         self.back_to_freqs_grea(odd)
         self.propagator_grea(odd, eta=eta)
         self.go_to_times_grea(odd)
-        self.normalize_grea(odd)
+        # self.normalize_grea(odd)
         self.self_energy_grea(even)
         self.back_to_freqs_grea(even)
         self.propagator_grea(even, eta=eta)
