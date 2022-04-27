@@ -132,7 +132,7 @@ class TestParams1(unittest.TestCase):
         ### normalization and DoS
         Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
         testing.assert_allclose(Dos_w_ref, Dos_w, atol=1e-8)
-        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-6)
+        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-4)
 
         ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
         testing.assert_allclose(G_grea_w.real, 0.0, atol=1e-8)
@@ -402,9 +402,9 @@ class TestInfiniteU(unittest.TestCase):
         idx0 = S.N // 2
 
         for k in range(3):
-            self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
+            self.assertAlmostEqual(S.R_grea[idx0, k], -1j, 4)
 
-        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -3j, 2)
+        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -3j, 4)
 
     def test_green_functions(self):
         S = self.S
@@ -537,9 +537,9 @@ class TestExtendedR0(unittest.TestCase):
         idx0 = S.N // 2
 
         for k in range(4):
-            self.assertAlmostEqual(S.R_grea[idx0, k], -1j)
+            self.assertAlmostEqual(S.R_grea[idx0, k], -1j, 4)
 
-        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -4j, 2)
+        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -4j, 4)
 
     def test_green_functions(self):
         S = self.S
@@ -555,7 +555,7 @@ class TestExtendedR0(unittest.TestCase):
         ### normalization and DoS
         Dos_w_ref = np.real(1j * (G_grea_w - G_less_w) / (2 * np.pi))
         testing.assert_allclose(Dos_w_ref, Dos_w, atol=1e-8)
-        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-6)
+        testing.assert_allclose(np.trapz(x=m_dos.values(), y=Dos_w), 1.0, atol=1e-4)
 
         ### Symmetries: diagonal lessers and greaters are pure imaginary and do not change sign
         testing.assert_allclose(G_grea_w.real, 0.0, atol=1e-8)
