@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from numpy import testing
-from nca.utilities import *
+from nca.function_tools import *
 from nca.hybridizations import *
 from nca.solver_steady_state import *
 from nca.fock_space import *

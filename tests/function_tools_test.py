@@ -1,5 +1,5 @@
 import unittest
-from nca.utilities import *
+from nca.function_tools import *
 import numpy as np
 from numpy import testing
 import toolbox as tb

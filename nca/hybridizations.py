@@ -1,6 +1,6 @@
 import toolbox as tb
 import numpy as np
-from .utilities import *
+from .function_tools import *
 from matplotlib import pyplot as plt
 
 

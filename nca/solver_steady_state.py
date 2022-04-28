@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from .utilities import fourier_transform, inv_fourier_transform, interp
+from .function_tools import fourier_transform, inv_fourier_transform, interp
 from .fixed_point_loop_solver import fixed_point_loop
 import toolbox as tb
 

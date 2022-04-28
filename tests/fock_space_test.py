@@ -1,6 +1,6 @@
 import unittest
 from nca.fock_space import is_orb_in_state, states_containing, greater_gf, lesser_gf
-from nca.utilities import Mesh
+from nca.function_tools import Mesh
 import numpy as np
 from numpy import testing
 
