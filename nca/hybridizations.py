@@ -142,3 +142,58 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
     delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
 
     return delta_less, delta_grea
+
+
+def make_Delta_gaussian(Gamma, D, beta, Ef, time_mesh=None):
+    """
+    Lesser and Greater hybridization functions of bath with gaussian DOS.
+
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
+
+    Returns:
+        delta_less, delta_grea
+    """
+
+    dw = D
+    if np.abs(Ef) < 10 * D:
+        dw = min(dw, 1.0 / beta)
+    dw = dw / 100.0
+    wmax = D * 10.0
+    N = 2 * round(wmax / dw) + 1
+
+    print_warning_large_error(
+        f"[Gaussian] Large number of samples required N={N}", N, tolw=1e7, tole=1e8
+    )
+    if N >= 1e7:
+        r = N * 1e-7
+        dw *= np.sqrt(r)
+        wmax /= np.sqrt(r)
+        N = 2 * round(wmax / dw) + 1
+        print(f"[Lorentzian] Reduced to {N}.")
+
+    if np.abs(Ef) < 10 * D:
+        freq_mesh = Mesh(wmax, N, pt_on_value=Ef)
+    else:
+        freq_mesh = Mesh(wmax, N)
+
+    ww = freq_mesh.values()
+    dos = np.exp(-((ww / D) ** 2) / 2.0) / D  # norm = sqrt(2 pi)
+
+    less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
+    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
+
+    time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
+    time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
+
+    if time_mesh is None:
+        return time_mesh_comp, delta_less, delta_grea
+
+    delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
+    delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
+
+    return delta_less, delta_grea
