@@ -3,6 +3,7 @@ from numpy import fft
 from scipy import integrate, interpolate
 import toolbox as tb
 from matplotlib import pyplot as plt
+from .utilities import print_warning_large_error
 
 
 def _next_regular(target):
@@ -143,8 +144,13 @@ def checked_interp(mesh_a, mesh_b, func_b, kind="cubic", tol=1e-3):
     check = interp(mesh_a, mesh_a_half, vals2, kind="linear", allow=True)
 
     err = np.trapz(np.abs(check - vals1), dx=mesh_a.delta)
-    if err > tol:
-        print(f"/!\ Low number of samples for this interpolation: err={err}")
+
+    print_warning_large_error(
+        f"Low number of samples for this interpolation. err={err}",
+        err,
+        tolw=tol,
+        tole=1e-1,
+    )
 
     return vals1
 

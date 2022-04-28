@@ -1,5 +1,6 @@
 import numpy as np
 from .function_tools import *
+from .utilities import print_warning_large_error
 
 from matplotlib import pyplot as plt
 import toolbox as tb
@@ -29,7 +30,7 @@ class SolverImagTime:
             self.energy_shift += min_en_threshold - min_energy
 
         self.nr_orbitals = int(np.log2(self.D))
-        if 2 ** self.nr_orbitals != self.D:
+        if 2**self.nr_orbitals != self.D:
             raise ValueError
 
         self.delta_dict = delta_dict
@@ -53,7 +54,7 @@ class SolverImagTime:
         self.N_loops = 0
 
     def is_orb_in_state(self, orbital, basis_state):
-        return (basis_state // 2 ** orbital) % 2 == 1
+        return (basis_state // 2**orbital) % 2 == 1
 
     def self_energy(self):
         self.S_tau[:] = 0.0
@@ -63,16 +64,16 @@ class SolverImagTime:
         for k in range(self.D):
             for x in range(self.nr_orbitals):
                 if self.is_orb_in_state(x, k):
-                    if self.H_loc[k - 2 ** x] < np.inf:
+                    if self.H_loc[k - 2**x] < np.inf:
                         self.S_tau[idx0 : idxb + 1, k] += (
                             -self.delta_dict[x][idx0 : idxb + 1]
-                            * self.R_tau[idx0 : idxb + 1, k - 2 ** x]
+                            * self.R_tau[idx0 : idxb + 1, k - 2**x]
                         )
                 else:
-                    if self.H_loc[k + 2 ** x] < np.inf:
+                    if self.H_loc[k + 2**x] < np.inf:
                         self.S_tau[idx0 : idxb + 1, k] += (
                             -self.delta_dict[x][idxb : idx0 - 1 : -1]
-                            * self.R_tau[idx0 : idxb + 1, k + 2 ** x]
+                            * self.R_tau[idx0 : idxb + 1, k + 2**x]
                         )
 
     def solve(self, tol=1e-8, min_iter=5, max_iter=100, plot=False, verbose=False):
@@ -157,8 +158,12 @@ class SolverImagTime:
             plt.legend()
             plt.xlim(-20, 15)
 
-        if err > tol:
-            print(f"WARNING: poor convergence, err={err}")
+        print_warning_large_error(
+            f"Imag. times fixed point loop: Poor convergence. Error={err}",
+            err,
+            tolw=tol,
+            tole=1e-3,
+        )
 
     def get_unshifted_R_tau(self):
         return self.R_tau * np.exp(self.time_mesh.values()[:, None] * self.energy_shift)
@@ -193,7 +198,7 @@ class SolverImagTime:
         for state in range(self.D):
             if not self.is_orb_in_state(orb, state):
                 G_tau += np.real(
-                    R_tau_cut[::-1, state] * R_tau_cut[:, state + 2 ** orb]
+                    R_tau_cut[::-1, state] * R_tau_cut[:, state + 2**orb]
                 )
 
         idx = self.time_mesh.idx_pt_on_value

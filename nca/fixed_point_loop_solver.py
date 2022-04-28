@@ -1,5 +1,6 @@
 import numpy as np
 from copy import copy
+from .utilities import print_warning_large_error
 
 
 def fixed_point_loop(
@@ -46,7 +47,8 @@ def fixed_point_loop(
         print("Done.")
         print()
 
-    if err > tol:
-        print(f"WARNING: poor convergence, err={err}")
+    print_warning_large_error(
+        f"Fixed point loop: Poor convergence. Error={err}", err, tolw=tol, tole=1e-3
+    )
 
     return x, err, n_iter

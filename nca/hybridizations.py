@@ -1,6 +1,7 @@
 import toolbox as tb
 import numpy as np
 from .function_tools import *
+from .utilities import print_warning_large_error
 from matplotlib import pyplot as plt
 
 
@@ -55,12 +56,15 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
     wmax = 100.0 * D
     N = 2 * round(wmax / dw) + 1
 
+    print_warning_large_error(
+        f"[Semicirc] Large number of samples required N={N}", N, tolw=1e7, tole=1e8
+    )
     if N >= 1e7:
-        print("/!\ [Semicirc] Large number of samples required")
         r = N * 1e-7
         dw *= np.sqrt(r)
         wmax /= np.sqrt(r)
         N = 2 * round(wmax / dw) + 1
+        print(f"[Semicirc] Reduced to {N}.")
 
     freq_mesh = Mesh(wmax, N, pt_on_value=D - wmax / (N - 1), adjust_nr_samples=False)
 
@@ -107,12 +111,15 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
     wmax = D * 100.0
     N = 2 * round(wmax / dw) + 1
 
+    print_warning_large_error(
+        f"[Lorentzian] Large number of samples required N={N}", N, tolw=1e7, tole=1e8
+    )
     if N >= 1e7:
-        print("/!\ [Lorentzian] Large number of samples required")
         r = N * 1e-7
         dw *= np.sqrt(r)
         wmax /= np.sqrt(r)
         N = 2 * round(wmax / dw) + 1
+        print(f"[Lorentzian] Reduced to {N}.")
 
     if np.abs(Ef) < 10 * D:
         freq_mesh = Mesh(wmax, N, pt_on_value=Ef)
