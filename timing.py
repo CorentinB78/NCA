@@ -20,7 +20,7 @@ D = 6.0
 E0 = 0.0
 
 ### Hybridization
-delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, E0, beta, Ef, mesh)
+delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
 fock = nca.FermionicFockSpace(["up", "dn"])
 fock.add_bath(0, delta_grea, delta_less)
