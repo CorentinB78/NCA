@@ -54,11 +54,15 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_reta_w_ref = data[:, 1:]
 
-        R_reta_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_reta_w[:, 0])
-        R_reta_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_reta_w[:, 1])
+        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_grea_w[:, 0])
+        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_grea_w[:, 1])
 
-        testing.assert_allclose(R_reta_w_0, R_reta_w_ref[:, 0], atol=1e-4, rtol=1e-2)
-        testing.assert_allclose(R_reta_w_1, R_reta_w_ref[:, 1], atol=1e-4, rtol=1e-2)
+        testing.assert_allclose(
+            R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
+        )
+        testing.assert_allclose(
+            R_grea_w_1, 2j * R_reta_w_ref[:, 1].imag, atol=1e-4, rtol=1e-2
+        )
 
     def test_R_less_non_reg(self):
         S = self.S
@@ -692,29 +696,15 @@ class TestExtendedR0VsHloc(unittest.TestCase):
         S_H.initialize_grea()
         S_R.initialize_grea()
 
-        testing.assert_allclose(S_H.R_reta_w, S_R.R_reta_w)
+        testing.assert_allclose(S_H.R_grea_w, S_R.R_grea_w)
 
-        S_H.fixed_pt_function_grea(S_H.R_reta_w)
-        S_R.fixed_pt_function_grea(S_R.R_reta_w)
+        S_H.fixed_pt_function_grea(S_H.R_grea_w)
+        S_R.fixed_pt_function_grea(S_R.R_grea_w)
 
-        testing.assert_allclose(S_H.R_reta_w, S_R.R_reta_w)
+        testing.assert_allclose(S_H.R_grea_w, S_R.R_grea_w)
         testing.assert_allclose(S_H.R_grea, S_R.R_grea)
         testing.assert_allclose(S_H.S_reta_w, S_R.S_reta_w)
         testing.assert_allclose(S_H.S_grea, S_R.S_grea)
-
-        S_H.initialize_less()
-        S_R.initialize_less()
-
-        testing.assert_allclose(S_H.R_less_w, S_R.R_less_w)
-        testing.assert_array_equal(S_H.R_less_w, S_R.R_less_w)
-
-        S_H.fixed_pt_function_less(S_H.R_less_w)
-        S_R.fixed_pt_function_less(S_R.R_less_w)
-
-        testing.assert_allclose(S_H.R_less_w, S_R.R_less_w)
-        testing.assert_allclose(S_H.R_less, S_R.R_less)
-        testing.assert_allclose(S_H.S_less_w, S_R.S_less_w)
-        testing.assert_allclose(S_H.S_less, S_R.S_less)
 
 
 if __name__ == "__main__":

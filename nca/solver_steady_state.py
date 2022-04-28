@@ -52,7 +52,6 @@ class SolverSteadyState:
                 self.inv_R0_reta_w[:, s] = g
 
         self.R_grea_w = np.zeros((N, self.D), dtype=complex)
-        self.R_reta_w = np.zeros((N, self.D), dtype=complex)
         self.R_less_w = np.zeros((N, self.D), dtype=complex)
 
         self.S_less_w = np.zeros((N, self.D), dtype=complex)
@@ -74,9 +73,9 @@ class SolverSteadyState:
         for i in range(self.D):
             if states[i]:
                 _, self.R_grea[:, i] = inv_fourier_transform(
-                    self.freq_meshes[i], self.R_reta_w[:, i].imag
+                    self.freq_meshes[i], self.R_grea_w[:, i].imag
                 )
-                self.R_grea[:, i] *= 2j
+                self.R_grea[:, i] *= 1j
 
     def normalize_grea(self, states):
         idx0 = self.N // 2
@@ -130,10 +129,10 @@ class SolverSteadyState:
                     self.freq_mesh_hybs,
                     self.inv_R0_reta_w[:, i],
                 )
-                self.R_reta_w[:, i] = inv_R0 - self.S_reta_w[:, i] + 1.0j * eta
-                if not np.all(np.isfinite(self.R_reta_w[:, i])):
+                self.R_grea_w[:, i] = inv_R0 - self.S_reta_w[:, i] + 1.0j * eta
+                if not np.all(np.isfinite(self.R_grea_w[:, i])):
                     raise ZeroDivisionError
-                self.R_reta_w[:, i] = 1.0 / self.R_reta_w[:, i]
+                self.R_grea_w[:, i] = 2j * np.imag(1.0 / self.R_grea_w[:, i])
 
     def initialize_grea(self, eta=0.0):
         even = self.is_even_state
@@ -148,12 +147,12 @@ class SolverSteadyState:
                     delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
-        self.R_reta_w[:, even] = 1.0 / (
-            self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta)
+        self.R_grea_w[:, even] = 2j * np.imag(
+            1.0 / (self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta))
         )
 
-    def fixed_pt_function_grea(self, R_reta_w, eta=0.0):
-        self.R_reta_w[...] = R_reta_w
+    def fixed_pt_function_grea(self, R_grea_w, eta=0.0):
+        self.R_grea_w[...] = R_grea_w
 
         even = self.is_even_state
         odd = ~self.is_even_state
@@ -173,7 +172,7 @@ class SolverSteadyState:
 
         self.nr_grea_feval += 2
 
-        return self.R_reta_w.copy()
+        return self.R_grea_w.copy()
 
     def greater_loop(
         self,
@@ -204,12 +203,12 @@ class SolverSteadyState:
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
         for _ in range(min_iter):
-            self.fixed_pt_function_grea(self.R_reta_w, eta=eta_i + eta_perm)
+            self.fixed_pt_function_grea(self.R_grea_w, eta=eta_i + eta_perm)
             eta_i /= q
 
         fixed_point_loop(
             self.fixed_pt_function_grea,
-            self.R_reta_w,
+            self.R_grea_w,
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
@@ -222,7 +221,14 @@ class SolverSteadyState:
             plt.legend()
             plt.xlim(-20, 15)
 
-        self.R_grea_w[:] = 2j * self.R_reta_w.imag
+        idx0 = self.N // 2
+        R_reta = self.R_grea.copy()
+        R_reta[:idx0, :] = 0.0
+        R_reta[idx0, :] *= 0.5
+        for i in range(self.D):
+            _, R_reta[:, i] = fourier_transform(self.time_meshes[i], R_reta[:, i])
+        self.R_reta_sqr_w = np.abs(R_reta) ** 2
+
         self.S_grea_w[:] = 2j * self.S_reta_w.imag
 
     def check_quality_grid(self, tol_delta):
@@ -230,12 +236,8 @@ class SolverSteadyState:
         der2 = np.trapz(x=w, y=np.abs(der2), axis=0)
         err_delta = self.freq_mesh.delta**2 * der2 / 12.0
 
-        err_norm = (
-            np.abs(np.trapz(x=self.freqs, y=self.R_reta_w, axis=0) + 1j * np.pi) / np.pi
-        )
-
         print(f"Quality grid: delta error ={err_delta}")
-        print(f"Quality grid: norm error = {err_norm}")
+        print(f"Quality grid: norm error = {self.get_normalization_error()}")
 
         dw = np.sqrt(12 * tol_delta / np.max(der2))
         print(f"Max time advised: {np.pi / dw}")
@@ -243,8 +245,8 @@ class SolverSteadyState:
     def get_normalization_error(self):
         norm = np.empty(self.D, dtype=complex)
         for i in range(self.D):
-            norm[i] = np.trapz(self.R_reta_w[:, i], dx=self.freq_meshes[i].delta)
-        return np.abs(norm + 1j * np.pi)
+            norm[i] = np.trapz(self.R_grea_w[:, i], dx=self.freq_meshes[i].delta)
+        return np.abs(norm - 2.0 * np.pi)
 
     ########## lesser ############
     def go_to_times_less(self, states):
@@ -293,9 +295,7 @@ class SolverSteadyState:
     def propagator_less(self, states):
         """S^<(w) ---> R^<(w)"""
         self.R_less_w[:, states] = (
-            self.R_reta_w[:, states]
-            * self.S_less_w[:, states]
-            * np.conj(self.R_reta_w[:, states])
+            self.R_reta_sqr_w[:, states] * self.S_less_w[:, states]
         )
 
     def normalize_less_t(self):
