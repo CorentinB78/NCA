@@ -126,6 +126,10 @@ class TestParams1(unittest.TestCase):
 
         self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -4j, 4)
 
+    def test_get_normalization_error(self):
+        norm_err = self.S.get_normalization_error()
+        testing.assert_allclose(norm_err, 0.0, atol=1e-4)
+
     def test_green_functions(self):
         S = self.S
         fock = self.fock

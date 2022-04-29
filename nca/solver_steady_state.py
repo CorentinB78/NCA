@@ -245,7 +245,7 @@ class SolverSteadyState:
         norm = np.empty(self.D, dtype=float)
         for i in range(self.D):
             norm[i] = np.trapz(self.R_grea_w[:, i], dx=self.freq_meshes[i].delta)
-        return np.abs(norm - 2.0 * np.pi)
+        return np.abs(norm + 2.0 * np.pi)
 
     ########## lesser ############
     def go_to_times_less(self, states):
