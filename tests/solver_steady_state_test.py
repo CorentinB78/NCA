@@ -58,10 +58,10 @@ class TestParams1(unittest.TestCase):
         R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_grea_w[:, 1])
 
         testing.assert_allclose(
-            R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
+            1j * R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
         )
         testing.assert_allclose(
-            R_grea_w_1, 2j * R_reta_w_ref[:, 1].imag, atol=1e-4, rtol=1e-2
+            1j * R_grea_w_1, 2j * R_reta_w_ref[:, 1].imag, atol=1e-4, rtol=1e-2
         )
 
     def test_R_less_non_reg(self):
@@ -75,8 +75,12 @@ class TestParams1(unittest.TestCase):
         R_less_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_less_w[:, 0])
         R_less_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_less_w[:, 1])
 
-        testing.assert_allclose(R_less_w_0, R_less_w_ref[:, 0], atol=1e-4, rtol=1e-2)
-        testing.assert_allclose(R_less_w_1, R_less_w_ref[:, 1], atol=1e-4, rtol=1e-2)
+        testing.assert_allclose(
+            1j * R_less_w_0, R_less_w_ref[:, 0], atol=1e-4, rtol=1e-2
+        )
+        testing.assert_allclose(
+            1j * R_less_w_1, R_less_w_ref[:, 1], atol=1e-4, rtol=1e-2
+        )
 
     def test_R_fourier_transforms(self):
         S = self.S
@@ -84,12 +88,12 @@ class TestParams1(unittest.TestCase):
             _, R_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_less[:, i], axis=0
             )
-            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
             _, R_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_grea[:, i], axis=0
             )
-            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
@@ -97,21 +101,21 @@ class TestParams1(unittest.TestCase):
             _, S_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_less[:, i], axis=0
             )
-            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
             _, S_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_grea[:, i], axis=0
             )
-            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
         S = self.S
 
-        ### symmetries: diagonal lessers and greaters are pure imaginary
-        testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.R_grea_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
+        ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
+        testing.assert_array_less(S.R_less_w, 1e-8)
+        testing.assert_array_less(S.R_grea_w, 1e-8)
+        testing.assert_array_less(S.S_less_w, 1e-8)
+        testing.assert_array_less(S.S_grea_w, 1e-8)
 
     def test_R_normalization(self):
         S = self.S
@@ -372,12 +376,12 @@ class TestInfiniteU(unittest.TestCase):
             _, R_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_less[:, i], axis=0
             )
-            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
             _, R_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_grea[:, i], axis=0
             )
-            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
@@ -385,21 +389,21 @@ class TestInfiniteU(unittest.TestCase):
             _, S_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_less[:, i], axis=0
             )
-            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
             _, S_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_grea[:, i], axis=0
             )
-            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
         S = self.S
 
-        ### symmetries: diagonal lessers and greaters are pure imaginary
-        testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.R_grea_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
+        ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
+        testing.assert_array_less(S.R_less_w, 1e-8)
+        testing.assert_array_less(S.R_grea_w, 1e-8)
+        testing.assert_array_less(S.S_less_w, 1e-8)
+        testing.assert_array_less(S.S_grea_w, 1e-8)
 
     def test_R_normalization(self):
         S = self.S
@@ -507,12 +511,12 @@ class TestExtendedR0(unittest.TestCase):
             _, R_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_less[:, i], axis=0
             )
-            testing.assert_allclose(R_less_w_ref, S.R_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
             _, R_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.R_grea[:, i], axis=0
             )
-            testing.assert_allclose(R_grea_w_ref, S.R_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
@@ -520,21 +524,21 @@ class TestExtendedR0(unittest.TestCase):
             _, S_less_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_less[:, i], axis=0
             )
-            testing.assert_allclose(S_less_w_ref, S.S_less_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
             _, S_grea_w_ref = fourier_transform(
                 S.time_meshes[i], S.S_grea[:, i], axis=0
             )
-            testing.assert_allclose(S_grea_w_ref, S.S_grea_w[:, i], atol=1e-3)
+            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
         S = self.S
 
-        ### symmetries: diagonal lessers and greaters are pure imaginary
-        testing.assert_allclose(S.R_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.R_grea_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_less_w.real, 0.0, atol=1e-8)
-        testing.assert_allclose(S.S_grea_w.real, 0.0, atol=1e-8)
+        ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
+        testing.assert_array_less(S.R_less_w, 1e-8)
+        testing.assert_array_less(S.R_grea_w, 1e-8)
+        testing.assert_array_less(S.S_less_w, 1e-8)
+        testing.assert_array_less(S.S_grea_w, 1e-8)
 
     def test_R_normalization(self):
         S = self.S
