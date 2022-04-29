@@ -180,7 +180,6 @@ class SolverSteadyState:
         min_iter=5,
         max_iter=100,
         eta=1.0,
-        eta_perm=0.0,
         plot=False,
         verbose=False,
     ):
@@ -198,12 +197,12 @@ class SolverSteadyState:
                 label=str(n_iter),
             )
 
-        self.initialize_grea(eta=eta + eta_perm)
+        self.initialize_grea(eta=eta)
 
         eta_i = eta
         q = np.log(100.0) / np.log(min_iter)
         for _ in range(min_iter):
-            self.fixed_pt_function_grea(self.R_grea_w, eta=eta_i + eta_perm)
+            self.fixed_pt_function_grea(self.R_grea_w, eta=eta_i)
             eta_i /= q
 
         fixed_point_loop(
@@ -214,7 +213,7 @@ class SolverSteadyState:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
-            f_kwargs={"eta": eta_perm},
+            f_kwargs={"eta": 0.0},
         )
 
         if plot:
