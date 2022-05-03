@@ -4,6 +4,8 @@ from .function_tools import *
 from .utilities import print_warning_large_error
 from matplotlib import pyplot as plt
 
+# TODO: swap outputs to respect default order: grea, less
+
 
 def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
     """
@@ -34,19 +36,18 @@ def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
     return delta
 
 
-def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
+def make_Delta_semicirc_w(Gamma, D, beta, Ef):
     """
-    Lesser and Greater hybridization funcitons of bath with semicircular DOS.
+    Frequency domain Lesser and Greater hybridization functions of bath with semicircular DOS.
 
     Arguments:
         Gamma -- coupling at zero energy
         D -- half bandwidth
         beta -- inverse temperature
         Ef -- Fermi level
-        time_mesh -- mesh on which to return data
 
     Returns:
-        delta_less, delta_grea
+        freq_mesh, delta_grea, delta_less
     """
 
     dw = D
@@ -77,6 +78,25 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
     less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
     grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
 
+    return freq_mesh, grea, less
+
+
+def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
+    """
+    Lesser and Greater hybridization funcitons of bath with semicircular DOS.
+
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
+
+    Returns:
+        delta_less, delta_grea
+    """
+    freq_mesh, grea, less = make_Delta_semicirc_w(Gamma, D, beta, Ef)
+
     time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
     time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
 
@@ -89,19 +109,18 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
     return delta_less, delta_grea
 
 
-def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
+def make_Delta_lorentzian_w(Gamma, D, beta, Ef):
     """
-    Lesser and Greater hybridization funcitons of bath with lorentzian DOS.
+    Frequency domain Lesser and Greater hybridization funcitons of bath with lorentzian DOS.
 
     Arguments:
         Gamma -- coupling at zero energy
         D -- half bandwidth
         beta -- inverse temperature
         Ef -- Fermi level
-        time_mesh -- mesh on which to return data
 
     Returns:
-        delta_less, delta_grea
+        freq_mesh, delta_grea, delta_less
     """
 
     dw = D
@@ -132,6 +151,25 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
     less = 2j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
     grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * np.pi * D * Gamma
 
+    return freq_mesh, grea, less
+
+
+def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
+    """
+    Lesser and Greater hybridization funcitons of bath with lorentzian DOS.
+
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
+
+    Returns:
+        delta_less, delta_grea
+    """
+    freq_mesh, grea, less = make_Delta_lorentzian_w(Gamma, D, beta, Ef)
+
     time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
     time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
 
@@ -144,19 +182,18 @@ def make_Delta_lorentzian(Gamma, D, beta, Ef, time_mesh=None):
     return delta_less, delta_grea
 
 
-def make_Delta_gaussian(Gamma, D, beta, Ef, time_mesh=None):
+def make_Delta_gaussian_w(Gamma, D, beta, Ef):
     """
-    Lesser and Greater hybridization functions of bath with gaussian DOS.
+    Frequency domain Lesser and Greater hybridization functions of bath with gaussian DOS.
 
     Arguments:
         Gamma -- coupling at zero energy
         D -- half bandwidth
         beta -- inverse temperature
         Ef -- Fermi level
-        time_mesh -- mesh on which to return data
 
     Returns:
-        delta_less, delta_grea
+        freq_mesh, delta_grea, delta_less
     """
 
     dw = D
@@ -186,6 +223,24 @@ def make_Delta_gaussian(Gamma, D, beta, Ef, time_mesh=None):
 
     less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
     grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
+
+    return freq_mesh, grea, less
+
+def make_Delta_gaussian(Gamma, D, beta, Ef, time_mesh=None):
+    """
+    Lesser and Greater hybridization functions of bath with gaussian DOS.
+
+    Arguments:
+        Gamma -- coupling at zero energy
+        D -- half bandwidth
+        beta -- inverse temperature
+        Ef -- Fermi level
+        time_mesh -- mesh on which to return data
+
+    Returns:
+        delta_less, delta_grea
+    """
+    freq_mesh, grea, less = make_Delta_gaussian_w(Gamma, D, beta, Ef)
 
     time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
     time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
