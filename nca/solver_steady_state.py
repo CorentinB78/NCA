@@ -120,7 +120,7 @@ class SolverSteadyState:
                     self.time_meshes[i], self.S_reta_w[:, i], axis=0
                 )
 
-    def propagator_grea(self, states, eta=0.0):
+    def propagator_grea(self, states):
         """\tilde S^>(w) ---> \tilde R^>(w)"""
         for i in range(self.D):
             if states[i]:
@@ -129,12 +129,12 @@ class SolverSteadyState:
                     self.freq_mesh_hybs,
                     self.inv_R0_reta_w[:, i],
                 )
-                inv_R_reta_w = inv_R0 - self.S_reta_w[:, i] + 1.0j * eta
+                inv_R_reta_w = inv_R0 - self.S_reta_w[:, i]
                 if not np.all(np.isfinite(inv_R_reta_w)):
                     raise ZeroDivisionError
                 self.R_grea_w[:, i] = np.imag(2.0 / inv_R_reta_w)
 
-    def initialize_grea(self, eta=0.0):
+    def initialize_grea(self):
         even = self.is_even_state
 
         delta_magn = 0.0
@@ -148,10 +148,10 @@ class SolverSteadyState:
         delta_magn = np.sqrt(delta_magn)
 
         self.R_grea_w[:, even] = np.imag(
-            2.0 / (self.inv_R0_reta_w[:, even] + 1.0j * (delta_magn + eta))
+            2.0 / (self.inv_R0_reta_w[:, even] + 1.0j * delta_magn)
         )
 
-    def fixed_pt_function_grea(self, R_grea_w, eta=0.0):
+    def fixed_pt_function_grea(self, R_grea_w):
         self.R_grea_w[...] = R_grea_w
 
         even = self.is_even_state
@@ -161,12 +161,12 @@ class SolverSteadyState:
         # self.normalize_grea(even)
         self.self_energy_grea(odd)
         self.back_to_freqs_grea(odd)
-        self.propagator_grea(odd, eta=eta)
+        self.propagator_grea(odd)
         self.go_to_times_grea(odd)
         # self.normalize_grea(odd)
         self.self_energy_grea(even)
         self.back_to_freqs_grea(even)
-        self.propagator_grea(even, eta=eta)
+        self.propagator_grea(even)
 
         self.normalization_error.append(self.get_normalization_error())
 
@@ -177,13 +177,10 @@ class SolverSteadyState:
     def greater_loop(
         self,
         tol=1e-8,
-        min_iter=5,
         max_iter=100,
-        eta=1.0,
         plot=False,
         verbose=False,
     ):
-        # TODO: make the first iterations print
         def err_func(R):
             e = 0.0
             for i in range(self.D):
@@ -197,13 +194,7 @@ class SolverSteadyState:
                 label=str(n_iter),
             )
 
-        self.initialize_grea(eta=eta)
-
-        eta_i = eta
-        q = np.log(100.0) / np.log(min_iter)
-        for _ in range(min_iter):
-            self.fixed_pt_function_grea(self.R_grea_w, eta=eta_i)
-            eta_i /= q
+        self.initialize_grea()
 
         fixed_point_loop(
             self.fixed_pt_function_grea,
@@ -213,7 +204,6 @@ class SolverSteadyState:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
-            f_kwargs={"eta": 0.0},
         )
 
         if plot:
@@ -316,7 +306,7 @@ class SolverSteadyState:
         self.R_less_w *= self.Z_loc / Z
         self.R_less *= self.Z_loc / Z
 
-    def initialize_less(self, eta=0.0):
+    def initialize_less(self):
         even = self.is_even_state
 
         delta_magn = 0.0
@@ -336,9 +326,7 @@ class SolverSteadyState:
                     self.freq_mesh_hybs,
                     self.inv_R0_reta_w[:, i],
                 )
-                self.R_less_w[:, i] = np.imag(
-                    1.0 / (inv_R0 + 1.0j * (delta_magn + eta))
-                )
+                self.R_less_w[:, i] = np.imag(1.0 / (inv_R0 + 1.0j * delta_magn))
 
         self.normalize_less_w()
 

@@ -42,7 +42,7 @@ class TestParams1(unittest.TestCase):
 
         S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
-        S_real.greater_loop(eta=0.0, plot=False, verbose=True)
+        S_real.greater_loop(plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
         freq_mesh, dos = fock.get_DOS(0, S_real)
@@ -108,7 +108,7 @@ class TestParamsInchworm(unittest.TestCase):
 
         S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
 
-        S_real.greater_loop(eta=0.0, plot=False, verbose=True)
+        S_real.greater_loop(plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
         freq_mesh, dos = fock.get_DOS(0, S_real)
