@@ -121,7 +121,8 @@ class Mesh:
     def __array__(self):
         return self.values()
 
-def interp(mesh_a, mesh_b, func_b, kind="linear", allow=False):
+
+def interp(mesh_a, mesh_b, func_b, kind="linear", allow=True):
     if mesh_a is mesh_b:
         return func_b
     if not allow:
