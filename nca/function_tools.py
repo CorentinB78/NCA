@@ -118,8 +118,8 @@ class Mesh:
     def __eq__(self, other):
         return (self.delta == other.delta) and (self.nr_samples == other.nr_samples)
 
-    def __array__(self):
-        return self.values()
+    def __array__(self, dtype=None):
+        return np.asarray(self.values(), dtype=dtype)
 
 
 def interp(mesh_a, mesh_b, func_b, kind="linear", allow=True):
