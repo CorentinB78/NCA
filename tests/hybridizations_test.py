@@ -19,6 +19,11 @@ class TestHybridization(unittest.TestCase):
         w_mesh, delta_grea_w = fourier_transform(t_mesh, delta_grea)
         w_mesh, delta_less_w = fourier_transform(t_mesh, delta_less)
 
+        idx0 = len(w_mesh) // 2
+        self.assertAlmostEqual(
+            delta_grea_w[idx0] - delta_less_w[idx0], -2.0j * Gamma, 5
+        )
+
         def A_ref(w):
             if np.abs(w) >= D:
                 return 0.0
@@ -50,6 +55,11 @@ class TestHybridization(unittest.TestCase):
         w_mesh, delta_grea_w = fourier_transform(t_mesh, delta_grea)
         w_mesh, delta_less_w = fourier_transform(t_mesh, delta_less)
 
+        idx0 = len(w_mesh) // 2
+        self.assertAlmostEqual(
+            delta_grea_w[idx0] - delta_less_w[idx0], -2.0j * Gamma, 5
+        )
+
         def A_ref(w):
             return Gamma * D**2 / (w**2 + D**2) / np.pi
 
@@ -79,6 +89,11 @@ class TestHybridization(unittest.TestCase):
 
         _, delta_grea_w = fourier_transform(t_mesh, delta_grea)
         _, delta_less_w = fourier_transform(t_mesh, delta_less)
+
+        idx0 = len(w_mesh) // 2
+        self.assertAlmostEqual(
+            delta_grea_w[idx0] - delta_less_w[idx0], -2.0j * Gamma, 5
+        )
 
         def A_ref_0(w):
             return np.exp(-((w / D) ** 2) / 2.0)
