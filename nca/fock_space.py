@@ -148,6 +148,22 @@ class FermionicFockSpace:
         m, g = fourier_transform(m, g)
         return m, g
 
+    def get_G_reta_w(self, orbital, solver):
+        """
+        Returns the retarded Green function in frequencies
+        """
+        m, G_less = self.get_G_less(orbital, solver)
+        m2, G_grea = self.get_G_grea(orbital, solver)
+
+        assert m is m2
+
+        G_reta = G_grea - G_less
+        idx0 = solver.N // 2
+        G_reta[:idx0] = 0.0
+        G_reta[idx0] *= 0.5
+        m, G_reta_w = fourier_transform(m, G_reta)
+        return m, G_reta_w
+
     def get_DOS(self, orbital, solver):
         """Returns density of states"""
         m, G_less = self.get_G_less(orbital, solver)
