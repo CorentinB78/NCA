@@ -39,7 +39,7 @@ class TestGreenFunction(unittest.TestCase):
         R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
 
         s = StateSpace(2)
-        m, G = greater_gf(0, s, [mesh] * 4, R_grea, R_less, 3.0)
+        m, G = greater_gf(0, s, mesh, R_grea, R_less, 3.0)
         G_ref = 1j * (np.cos(-x - 0.7) * np.sin(x) + np.cos(-x) * np.sin(x + 0.5)) / 3.0
 
         self.assertIs(m, mesh)
@@ -52,7 +52,7 @@ class TestGreenFunction(unittest.TestCase):
         R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
 
         s = StateSpace(2)
-        m, G = lesser_gf(0, s, [mesh] * 4, R_grea, R_less, 3.0)
+        m, G = lesser_gf(0, s, mesh, R_grea, R_less, 3.0)
         G_ref = (
             -1j * (np.sin(x - 0.7) * np.cos(-x) + np.sin(x) * np.cos(-x + 0.5)) / 3.0
         )

@@ -22,50 +22,34 @@ def states_containing(orbital, nr_orbitals):
     return all_states[contains], all_states[~contains]
 
 
-def greater_gf(orbital, state_space, time_meshes, R_grea, R_less, Z):
+def greater_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
     R_grea = np.asarray(R_grea, dtype=complex)
     R_less = np.asarray(R_less, dtype=complex)
 
     states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
 
-    mesh = None
     G_grea = 0.0
     for i in range(len(states_yes)):
         s_no, s_yes = states_no[i], states_yes[i]
-        m, gg = product_functions(
-            time_meshes[s_no],
-            R_less[::-1, s_no],
-            time_meshes[s_yes],
-            R_grea[:, s_yes],
-        )
-
-        mesh, G_grea = sum_functions(mesh, G_grea, m, gg)
+        G_grea += R_less[::-1, s_no] * R_grea[:, s_yes]
 
     G_grea *= 1j / Z
-    return mesh, G_grea
+    return time_mesh, G_grea
 
 
-def lesser_gf(orbital, state_space, time_meshes, R_grea, R_less, Z):
+def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
     R_grea = np.asarray(R_grea, dtype=complex)
     R_less = np.asarray(R_less, dtype=complex)
 
     states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
 
-    mesh = None
     G_less = 0.0
     for i in range(len(states_yes)):
         s_no, s_yes = states_no[i], states_yes[i]
-        m, gg = product_functions(
-            time_meshes[s_no],
-            R_grea[::-1, s_no],
-            time_meshes[s_yes],
-            R_less[:, s_yes],
-        )
-
-        mesh, G_less = sum_functions(mesh, G_less, m, gg)
+        G_less += R_grea[::-1, s_no] * R_less[:, s_yes]
 
     G_less *= -1j / Z
-    return mesh, G_less
+    return time_mesh, G_less
 
 
 class StateSpace:
@@ -165,7 +149,7 @@ class FermionicFockSpace:
         return greater_gf(
             orbital,
             self.state_space,
-            solver.time_meshes,
+            solver.time_mesh,
             solver.R_grea,
             solver.R_less,
             solver.Z_loc,
@@ -176,7 +160,7 @@ class FermionicFockSpace:
         return lesser_gf(
             orbital,
             self.state_space,
-            solver.time_meshes,
+            solver.time_mesh,
             solver.R_grea,
             solver.R_less,
             solver.Z_loc,

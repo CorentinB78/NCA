@@ -52,8 +52,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_reta_w_ref = data[:, 1:]
 
-        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_grea_w[:, 0])
-        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_grea_w[:, 1])
+        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_grea_w[:, 0])
+        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_grea_w[:, 1])
 
         testing.assert_allclose(
             1j * R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
@@ -70,8 +70,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_less_w_ref = data[:, 1:]
 
-        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_meshes[0].values(), S.R_less_w[:, 0])
-        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_meshes[1].values(), S.R_less_w[:, 1])
+        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 0])
+        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 1])
 
         testing.assert_allclose(
             1j * R_less_w_0, R_less_w_ref[:, 0], atol=1e-4, rtol=1e-2
@@ -83,27 +83,19 @@ class TestParams1(unittest.TestCase):
     def test_R_fourier_transforms(self):
         S = self.S
         for i in range(4):
-            _, R_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_less[:, i], axis=0
-            )
+            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
             testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
-            _, R_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_grea[:, i], axis=0
-            )
+            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
             testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
         for i in range(4):
-            _, S_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_less[:, i], axis=0
-            )
+            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
             testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
-            _, S_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_grea[:, i], axis=0
-            )
+            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
             testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
@@ -374,27 +366,19 @@ class TestInfiniteU(unittest.TestCase):
     def test_R_fourier_transforms(self):
         S = self.S
         for i in range(3):
-            _, R_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_less[:, i], axis=0
-            )
+            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
             testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
-            _, R_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_grea[:, i], axis=0
-            )
+            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
             testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
         for i in range(3):
-            _, S_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_less[:, i], axis=0
-            )
+            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
             testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
-            _, S_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_grea[:, i], axis=0
-            )
+            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
             testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
@@ -507,27 +491,19 @@ class TestExtendedR0(unittest.TestCase):
     def test_R_fourier_transforms(self):
         S = self.S
         for i in range(4):
-            _, R_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_less[:, i], axis=0
-            )
+            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
             testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
 
-            _, R_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.R_grea[:, i], axis=0
-            )
+            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
             testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
 
     def test_S_fourier_transform(self):
         S = self.S
         for i in range(4):
-            _, S_less_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_less[:, i], axis=0
-            )
+            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
             testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
 
-            _, S_grea_w_ref = fourier_transform(
-                S.time_meshes[i], S.S_grea[:, i], axis=0
-            )
+            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
             testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
 
     def test_RS_symmetries(self):
