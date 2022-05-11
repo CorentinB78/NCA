@@ -33,8 +33,11 @@ print(fock.basis())
 S = nca.SolverSteadyState(H_loc, mesh, hybs, [0, 3])
 
 start = time.time()
-cProfile.run("S.greater_loop(plot=False, verbose=False)")
-# S.lesser_loop(plot=False, verbose=True, max_iter=20)
+with cProfile.Profile() as pr:
+    S.greater_loop(max_iter=20)
+    S.lesser_loop(max_iter=20)
 runtime = time.time() - start
+
+pr.print_stats()
 
 print(f"Run time: {runtime}")
