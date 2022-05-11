@@ -107,7 +107,7 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for a in even:
+        for a in np.arange(self.D)[even]:
             for b, delta, _ in self.hybridizations[a]:
                 delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
@@ -258,7 +258,7 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for a in even:
+        for a in np.arange(self.D)[even]:
             for b, _, delta in self.hybridizations[a]:
                 delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
