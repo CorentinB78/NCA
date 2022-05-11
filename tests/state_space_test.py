@@ -1,12 +1,9 @@
 import unittest
-from nca.fock_space import (
+from nca.state_space import (
     is_orb_in_state,
     states_containing,
-    greater_gf,
-    lesser_gf,
     StateSpace,
 )
-from nca.function_tools import Mesh
 import numpy as np
 from numpy import testing
 
@@ -29,36 +26,6 @@ class TestOrbitals(unittest.TestCase):
 
         np.testing.assert_array_equal(states_containing(0, N), ([1, 3], [0, 2]))
         np.testing.assert_array_equal(states_containing(1, N), ([2, 3], [0, 1]))
-
-
-class TestGreenFunction(unittest.TestCase):
-    def test_greater(self):
-        mesh = Mesh(10.0, 100)
-        x = mesh.values()
-        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
-        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
-
-        s = StateSpace(2)
-        m, G = greater_gf(0, s, mesh, R_grea, R_less, 3.0)
-        G_ref = 1j * (np.cos(-x - 0.7) * np.sin(x) + np.cos(-x) * np.sin(x + 0.5)) / 3.0
-
-        self.assertIs(m, mesh)
-        testing.assert_allclose(G, G_ref)
-
-    def test_lesser(self):
-        mesh = Mesh(10.0, 100)
-        x = mesh.values()
-        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
-        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
-
-        s = StateSpace(2)
-        m, G = lesser_gf(0, s, mesh, R_grea, R_less, 3.0)
-        G_ref = (
-            -1j * (np.sin(x - 0.7) * np.cos(-x) + np.sin(x) * np.cos(-x + 0.5)) / 3.0
-        )
-
-        self.assertIs(m, mesh)
-        testing.assert_allclose(G, G_ref)
 
 
 class TestStateSpaceVanilla(unittest.TestCase):
@@ -85,6 +52,13 @@ class TestStateSpaceVanilla(unittest.TestCase):
         testing.assert_array_equal(a, [1, 3])
         testing.assert_array_equal(b, [0, 2])
 
+    def test_parity(self):
+        S = StateSpace(2)
+        even, odd = S.get_states_by_parity()
+
+        self.assertListEqual(even, [0, 3])
+        self.assertListEqual(odd, [1, 2])
+
 
 class TestStateSpaceForbidden(unittest.TestCase):
     def test_contains(self):
@@ -109,6 +83,13 @@ class TestStateSpaceForbidden(unittest.TestCase):
 
         testing.assert_array_equal(a, [1])
         testing.assert_array_equal(b, [0])
+
+    def test_parity(self):
+        S = StateSpace(2, forbidden_states=[3])
+        even, odd = S.get_states_by_parity()
+
+        self.assertListEqual(even, [0])
+        self.assertListEqual(odd, [1, 2])
 
 
 if __name__ == "__main__":

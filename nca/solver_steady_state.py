@@ -1,12 +1,51 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from .function_tools import fourier_transform, inv_fourier_transform
+from .state_space import StateSpace
+from .core_steady_state import CoreSolverSteadyState
 from .fixed_point_loop_solver import fixed_point_loop
-import toolbox as tb
+
+
+def greater_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
+    R_grea = np.asarray(R_grea, dtype=complex)
+    R_less = np.asarray(R_less, dtype=complex)
+
+    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
+
+    G_grea = 0.0
+    for i in range(len(states_yes)):
+        s_no, s_yes = states_no[i], states_yes[i]
+        G_grea += R_less[::-1, s_no] * R_grea[:, s_yes]
+
+    G_grea *= 1j / Z
+    return time_mesh, G_grea
+
+
+def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
+    R_grea = np.asarray(R_grea, dtype=complex)
+    R_less = np.asarray(R_less, dtype=complex)
+
+    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
+
+    G_less = 0.0
+    for i in range(len(states_yes)):
+        s_no, s_yes = states_no[i], states_yes[i]
+        G_less += R_grea[::-1, s_no] * R_less[:, s_yes]
+
+    G_less *= -1j / Z
+    return time_mesh, G_less
 
 
 class SolverSteadyState:
-    def __init__(self, local_evol, time_mesh, hybridizations, list_even_states):
+    # TODO: method for list of even states
+    def __init__(
+        self,
+        nr_orbitals,
+        local_evol,
+        time_mesh,
+        orbital_names=None,
+        forbidden_states=None,
+    ):
         """
         Real time Non-Crossing Approximation (NCA) solver for steady states.
 
@@ -18,188 +57,35 @@ class SolverSteadyState:
         Optionnaly, several processes can be regrouped if they share the same hybridization functions, then a and b should be 1D arrays.
         * list_even_states: TODO
         """
-        # TODO: sanity checks
+        self.state_space = StateSpace(nr_orbitals, orbital_names, forbidden_states)
 
-        self.N = len(time_mesh)
-        N = self.N
         self.D = len(local_evol)
-        self.Z_loc = self.D
+        self.N = len(time_mesh)
+        assert self.D == 2**nr_orbitals - len(self.state_space.forbidden_states)
 
-        self.even_states = list_even_states
-        self.odd_states = []
-        for i in range(self.D):
-            if i not in self.even_states:
-                self.odd_states.append(i)
+        self._hybs = {}
+        for s in self.state_space.all_states:
+            self._hybs[s] = []
 
-        self.D_half = max(len(self.even_states), len(self.odd_states))
+        even, odd = self.state_space.get_states_by_parity()
 
-        self.is_even_state = np.array(
-            [(s in list_even_states) for s in range(self.D)], dtype=bool
-        )
+        self.core = CoreSolverSteadyState(local_evol, time_mesh, even, odd)
 
-        self.hybridizations = hybridizations
         self.time_mesh = time_mesh
-        self.freq_mesh = time_mesh.adjoint()
+        self.freq_mesh = self.core.freq_mesh
 
-        self.inv_R0_reta_w = np.empty((N, self.D), dtype=complex)
-        for s, g in enumerate(local_evol):
-            if isinstance(g, complex) or isinstance(g, float):
-                self.inv_R0_reta_w[:, s] = self.freq_mesh.values() - g
-            else:
-                self.inv_R0_reta_w[:, s] = g
+        self._lock_hybs = False
 
-        self.R_grea_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
-        self.R_less_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
+    def add_bath(self, orbital, delta_grea, delta_less):
+        """Only baths coupled to a single orbital for now"""
+        if self._lock_hybs:
+            raise RuntimeError
 
-        self.nr_grea_feval = 0
-        self.nr_less_feval = 0
+        states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
 
-        self.state_parity_table = np.empty(self.D, dtype=int)
-        k_odd = 0
-        k_even = 0
-        for i in range(self.D):
-            if i in self.even_states:
-                self.state_parity_table[i] = k_even
-                k_even += 1
-            else:
-                self.state_parity_table[i] = k_odd
-                k_odd += 1
-
-        self.normalization_error = []
-
-    ### Initial guesses ###
-
-    def initialize_grea(self):
-        even = self.is_even_state
-
-        delta_magn = 0.0
-        idx0 = self.N // 2
-
-        for a in self.even_states:
-            for b, delta, _ in self.hybridizations[a]:
-                delta_magn += np.abs(delta[idx0]) ** 2
-        delta_magn = np.sqrt(delta_magn)
-
-        self.R_grea_w[:, even] = np.imag(
-            2.0 / (self.inv_R0_reta_w[:, even] + 1.0j * delta_magn)
-        )
-
-    def initialize_less(self):
-        even = self.is_even_state
-
-        delta_magn = 0.0
-        idx0 = self.N // 2
-
-        for a in self.even_states:
-            for b, _, delta in self.hybridizations[a]:
-                delta_magn += np.abs(delta[idx0]) ** 2
-        delta_magn = np.sqrt(delta_magn)
-
-        for i in range(self.D):
-            if even[i]:
-                self.R_less_w[:, i] = np.imag(
-                    1.0 / (self.inv_R0_reta_w[:, i] + 1.0j * delta_magn)
-                )
-
-        self.normalize_less_w()
-
-    ### Self consistency relations
-
-    def self_consistency_grea(self, parity_flag):
-        """
-        parity_flag: True for odd->even, False for even->odd
-        """
-        group_1, group_2 = self.even_states, self.odd_states
-        if parity_flag:
-            group_1, group_2 = group_2, group_1
-
-        R_grea = np.empty((self.N, self.D_half), dtype=complex)
-
-        for k, s in enumerate(group_1):
-            _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
-        R_grea *= 1j
-
-        S_grea = np.zeros((self.N, self.D_half), dtype=complex)
-
-        for k, a in enumerate(group_2):
-            for b, delta, _ in self.hybridizations[a]:
-                S_grea[:, k] += 1j * delta[:] * R_grea[:, self.state_parity_table[b]]
-
-        del R_grea
-
-        idx0 = self.N // 2
-        S_grea[:idx0, :] = 0.0
-        S_grea[idx0, :] *= 0.5
-        _, S_grea = fourier_transform(self.time_mesh, S_grea, axis=0)
-
-        for k, s in enumerate(group_2):
-            r = self.inv_R0_reta_w[:, s] - S_grea[:, k]
-            self.R_grea_w[:, s] = np.imag(2.0 / r)
-
-    def self_consistency_less(self, parity_flag):
-        """
-        parity_flag: True for odd->even, False for even->odd
-        """
-        group_1, group_2 = self.even_states, self.odd_states
-        if parity_flag:
-            group_1, group_2 = group_2, group_1
-
-        R_less = np.empty((self.N, self.D_half), dtype=complex)
-
-        for k, s in enumerate(group_1):
-            _, R_less[:, k] = inv_fourier_transform(
-                self.freq_mesh, self.R_less_w[:, s], axis=0
-            )
-        R_less *= 1.0j
-
-        S_less = np.zeros((self.N, self.D_half), dtype=complex)
-
-        for k, a in enumerate(group_2):
-            for b, _, delta in self.hybridizations[a]:
-                S_less[:, k] += -1j * delta[:] * R_less[:, self.state_parity_table[b]]
-
-        del R_less
-
-        _, S_less = fourier_transform(self.time_mesh, S_less, axis=0)
-
-        for k, s in enumerate(group_2):
-            self.R_less_w[:, s] = self.R_reta_sqr_w[:, s] * S_less[:, k].imag
-
-    def normalize_less_w(self):
-        Z = 0.0
-        for i in range(self.D):
-            Z += -np.trapz(dx=self.freq_mesh.delta, y=self.R_less_w[:, i])
-        Z /= 2 * np.pi
-        if Z == 0.0:
-            raise ZeroDivisionError
-        self.R_less_w *= self.Z_loc / Z
-
-    ### Loops ###
-
-    def fixed_pt_function_grea(self, R_grea_w):
-        self.R_grea_w[...] = R_grea_w
-
-        self.self_consistency_grea(False)
-        self.self_consistency_grea(True)
-
-        self.normalization_error.append(self.get_normalization_error())
-
-        self.nr_grea_feval += 2
-
-        return self.R_grea_w.copy()
-
-    def fixed_pt_function_less(self, R_less_w):
-
-        self.R_less_w[...] = R_less_w.reshape((-1, self.D))
-
-        self.self_consistency_less(False)
-        self.self_consistency_less(True)
-
-        self.normalize_less_w()
-
-        self.nr_less_feval += 2
-
-        return self.R_less_w.copy()
+        for a, b in zip(states_a, states_b):
+            self._hybs[a].append((b, delta_grea, delta_less))
+            self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
 
     def greater_loop(
         self,
@@ -208,6 +94,9 @@ class SolverSteadyState:
         plot=False,
         verbose=False,
     ):
+        self._lock_hybs = True
+        self.core.hybridizations = self._hybs
+
         def err_func(R):
             e = np.sum(np.trapz(np.abs(R), dx=self.freq_mesh.delta, axis=0))
             return e / self.D
@@ -219,11 +108,11 @@ class SolverSteadyState:
                 label=str(n_iter),
             )
 
-        self.initialize_grea()
+        self.core.initialize_grea()
 
         fixed_point_loop(
-            self.fixed_pt_function_grea,
-            self.R_grea_w,
+            self.core.fixed_pt_function_grea,
+            self.core.R_grea_w,
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
@@ -235,11 +124,14 @@ class SolverSteadyState:
             plt.legend()
             plt.xlim(-20, 15)
 
-        self.R_reta_sqr_w = np.abs(self.get_R_reta_w()) ** 2
+        self.core.R_reta_sqr_w = np.abs(self.get_R_reta_w()) ** 2
 
-        # self.S_grea_w = 2.0 * self.S_reta_w.imag
+        # self.core.S_grea_w = 2.0 * self.core.S_reta_w.imag
 
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
+        self._lock_hybs = True
+        self.core.hybridizations = self._hybs
+
         def err_func(R):
             e = np.sum(np.trapz(np.abs(R), dx=self.freq_mesh.delta, axis=0))
             return e / self.D
@@ -252,11 +144,11 @@ class SolverSteadyState:
                 color="b" if n_iter % 2 else "r",
             )
 
-        self.initialize_less()
+        self.core.initialize_less()
 
         fixed_point_loop(
-            self.fixed_pt_function_less,
-            self.R_less_w,
+            self.core.fixed_pt_function_less,
+            self.core.R_less_w,
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
@@ -272,10 +164,10 @@ class SolverSteadyState:
     ### getters ###
 
     def get_R_grea_w(self):
-        return self.R_grea_w.copy()
+        return self.core.R_grea_w.copy()
 
     def get_R_grea(self):
-        _, R_grea = inv_fourier_transform(self.freq_mesh, self.R_grea_w, axis=0)
+        _, R_grea = inv_fourier_transform(self.freq_mesh, self.core.R_grea_w, axis=0)
         return R_grea * 1j
 
     def get_R_reta_w(self):
@@ -288,27 +180,76 @@ class SolverSteadyState:
         return R_reta_w
 
     def get_R_less_w(self):
-        return self.R_less_w.copy()
+        return self.core.R_less_w.copy()
 
     def get_R_less(self):
-        _, R_less = inv_fourier_transform(self.freq_mesh, self.R_less_w, axis=0)
+        _, R_less = inv_fourier_transform(self.freq_mesh, self.core.R_less_w, axis=0)
         return R_less * 1j
 
-    ### Utilities ###
+    def get_G_grea(self, orbital):
+        """Returns G^>(t) on time grid used in solver"""
+        return greater_gf(
+            orbital,
+            self.state_space,
+            self.time_mesh,
+            self.get_R_grea(),
+            self.get_R_less(),
+            self.core.Z_loc,
+        )
 
-    def check_quality_grid(self, tol_delta):
-        _, _, w, der2 = tb.derivate_twice(self.freqs, self.R_grea_w, axis=0)
-        der2 = np.trapz(x=w, y=np.abs(der2), axis=0)
-        err_delta = self.freq_mesh.delta**2 * der2 / 12.0
+    def get_G_less(self, orbital):
+        """Returns G^<(t) on time grid used in solver"""
+        return lesser_gf(
+            orbital,
+            self.state_space,
+            self.time_mesh,
+            self.get_R_grea(),
+            self.get_R_less(),
+            self.core.Z_loc,
+        )
 
-        print(f"Quality grid: delta error ={err_delta}")
-        print(f"Quality grid: norm error = {self.get_normalization_error()}")
+    def get_G_grea_w(self, orbital):
+        m, g = self.get_G_grea(orbital)
+        m, g = fourier_transform(m, g)
+        return m, g
 
-        dw = np.sqrt(12 * tol_delta / np.max(der2))
-        print(f"Max time advised: {np.pi / dw}")
+    def get_G_less_w(self, orbital):
+        m, g = self.get_G_less(orbital)
+        m, g = fourier_transform(m, g)
+        return m, g
+
+    def get_G_reta_w(self, orbital):
+        """
+        Returns the retarded Green function in frequencies
+        """
+        m, G_less = self.get_G_less(orbital)
+        m2, G_grea = self.get_G_grea(orbital)
+
+        assert m is m2
+
+        G_reta = G_grea - G_less
+        idx0 = self.N // 2
+        G_reta[:idx0] = 0.0
+        G_reta[idx0] *= 0.5
+        m, G_reta_w = fourier_transform(m, G_reta)
+        return m, G_reta_w
+
+    def get_DOS(self, orbital):
+        """Returns density of states"""
+        m, G_less = self.get_G_less(orbital)
+        m2, G_grea = self.get_G_grea(orbital)
+
+        assert m is m2
+
+        dos = 1j * (G_grea - G_less) / (2 * np.pi)
+        m, dos = fourier_transform(m, dos)
+        return m, np.real(dos)
 
     def get_normalization_error(self):
-        norm = np.empty(self.D, dtype=float)
-        for i in range(self.D):
-            norm[i] = np.trapz(self.R_grea_w[:, i], dx=self.freq_mesh.delta)
-        return np.abs(norm + 2.0 * np.pi)
+        return self.core.get_normalization_error()
+
+
+def AIM_infinite_U(local_evol, time_mesh):
+    return SolverSteadyState(
+        2, local_evol, time_mesh, orbital_names=["up", "dn"], forbidden_states=[3]
+    )

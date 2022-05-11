@@ -23,14 +23,12 @@ E0 = 0.0
 ### Hybridization
 delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
-fock = nca.FermionicFockSpace(["up", "dn"])
-fock.add_bath(0, delta_grea, delta_less)
-fock.add_bath(1, delta_grea, delta_less)
-hybs = fock.generate_hybridizations()
+S = nca.SolverSteadyState(2, H_loc, mesh)
 
-print(fock.basis())
+S.add_bath(0, delta_grea, delta_less)
+S.add_bath(1, delta_grea, delta_less)
 
-S = nca.SolverSteadyState(H_loc, mesh, hybs, [0, 3])
+print(S.state_space.basis)
 
 start = time.time()
 with cProfile.Profile() as pr:

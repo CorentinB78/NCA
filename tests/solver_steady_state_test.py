@@ -4,12 +4,41 @@ from numpy import testing
 from nca.function_tools import *
 from nca.hybridizations import *
 from nca.solver_steady_state import *
-from nca.fock_space import *
+from nca.state_space import *
+
+
+class TestGreenFunction(unittest.TestCase):
+    def test_greater(self):
+        mesh = Mesh(10.0, 100)
+        x = mesh.values()
+        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
+        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
+
+        s = StateSpace(2)
+        m, G = greater_gf(0, s, mesh, R_grea, R_less, 3.0)
+        G_ref = 1j * (np.cos(-x - 0.7) * np.sin(x) + np.cos(-x) * np.sin(x + 0.5)) / 3.0
+
+        self.assertIs(m, mesh)
+        testing.assert_allclose(G, G_ref)
+
+    def test_lesser(self):
+        mesh = Mesh(10.0, 100)
+        x = mesh.values()
+        R_grea = np.array([np.cos(x), np.sin(x), np.cos(x + 0.5), np.sin(x + 0.5)]).T
+        R_less = np.array([np.cos(x - 0.7), np.sin(x - 0.7), np.cos(x), np.sin(x)]).T
+
+        s = StateSpace(2)
+        m, G = lesser_gf(0, s, mesh, R_grea, R_less, 3.0)
+        G_ref = (
+            -1j * (np.sin(x - 0.7) * np.cos(-x) + np.sin(x) * np.cos(-x + 0.5)) / 3.0
+        )
+
+        self.assertIs(m, mesh)
+        testing.assert_allclose(G, G_ref)
 
 
 class TestParams1(unittest.TestCase):
 
-    fock = None
     S = None
 
     @classmethod
@@ -32,17 +61,13 @@ class TestParams1(unittest.TestCase):
         ### Hybridization
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
-        fock = FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
-
-        S = SolverSteadyState(H_loc, mesh, hybs, [0, 3])
+        S = SolverSteadyState(2, H_loc, mesh)
+        S.add_bath(0, delta_grea, delta_less)
+        S.add_bath(1, delta_grea, delta_less)
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(plot=False, verbose=True, max_iter=20)
 
-        cls.fock = fock
         cls.S = S
 
     def test_R_reta_non_reg(self):
@@ -104,11 +129,10 @@ class TestParams1(unittest.TestCase):
 
     def test_green_functions(self):
         S = self.S
-        fock = self.fock
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         m_grea_w, G_grea_w = fourier_transform(m_grea, G_grea)
         m_less_w, G_less_w = fourier_transform(m_less, G_less)
@@ -126,13 +150,12 @@ class TestParams1(unittest.TestCase):
 
     def test_fluctuation_dissipation_thm(self):
         S = self.S
-        fock = self.fock
         beta = 3.0
         Ef = 0.3
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         _, G_grea_w = fourier_transform(m_grea, G_grea)
         _, G_less_w = fourier_transform(m_less, G_less)
@@ -259,21 +282,16 @@ class TestParamsRenaud(unittest.TestCase):
 
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
-        fock = FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
-
-        S = SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
+        S = SolverSteadyState(2, H_loc, time_mesh)
+        S.add_bath(0, delta_grea, delta_less)
+        S.add_bath(1, delta_grea, delta_less)
 
         S.greater_loop(tol=1e-5, verbose=True)
         S.lesser_loop(tol=1e-5, verbose=True)
 
-        self.fock = fock
         self.S = S
 
     def test_values(self):
-        fock = self.fock
         S = self.S
 
         times_ref = np.linspace(-5.0, 5.0, 11)
@@ -296,11 +314,11 @@ class TestParamsRenaud(unittest.TestCase):
         )
         G_less_ref = np.conj(G_grea_ref)
 
-        mesh, G_grea = fock.get_G_grea(0, S)
+        mesh, G_grea = S.get_G_grea(0)
         G_grea = np.interp(times_ref, mesh.values(), G_grea)
         np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 3)
 
-        mesh, G_less = fock.get_G_less(0, S)
+        mesh, G_less = S.get_G_less(0)
         G_less = np.interp(times_ref, mesh.values(), G_less)
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 3)
 
@@ -308,7 +326,6 @@ class TestParamsRenaud(unittest.TestCase):
 class TestInfiniteU(unittest.TestCase):
 
     S = None
-    fock = None
 
     @classmethod
     def setUpClass(cls):
@@ -330,17 +347,13 @@ class TestInfiniteU(unittest.TestCase):
         ### Hybridization
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
-        fock = AIM_infinite_U()
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
-
-        S = SolverSteadyState(H_loc, mesh, hybs, [0])
+        S = AIM_infinite_U(H_loc, mesh)
+        S.add_bath(0, delta_grea, delta_less)
+        S.add_bath(1, delta_grea, delta_less)
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(plot=False, verbose=True, max_iter=20)
 
-        cls.fock = fock
         cls.S = S
 
     @unittest.skip("sanity check should be removed")
@@ -367,11 +380,10 @@ class TestInfiniteU(unittest.TestCase):
 
     def test_green_functions(self):
         S = self.S
-        fock = self.fock
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         _, G_grea_w = fourier_transform(m_grea, G_grea)
         _, G_less_w = fourier_transform(m_less, G_less)
@@ -389,13 +401,12 @@ class TestInfiniteU(unittest.TestCase):
 
     def test_fluctuation_dissipation_thm(self):
         S = self.S
-        fock = self.fock
         beta = 3.0
         Ef = 0.3
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         _, G_grea_w = fourier_transform(m_grea, G_grea)
         _, G_less_w = fourier_transform(m_less, G_less)
@@ -415,7 +426,6 @@ class TestInfiniteU(unittest.TestCase):
 
 class TestExtendedR0(unittest.TestCase):
 
-    fock = None
     S = None
 
     @classmethod
@@ -441,17 +451,14 @@ class TestExtendedR0(unittest.TestCase):
         ### Hybridization
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
 
-        fock = FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
+        S = SolverSteadyState(2, inv_R0, mesh)
 
-        S = SolverSteadyState(inv_R0, mesh, hybs, [0, 3])
+        S.add_bath(0, delta_grea, delta_less)
+        S.add_bath(1, delta_grea, delta_less)
 
         S.greater_loop(plot=False, verbose=True)
         S.lesser_loop(verbose=True, max_iter=100)
 
-        cls.fock = fock
         cls.S = S
 
     def test_RS_symmetries(self):
@@ -474,11 +481,10 @@ class TestExtendedR0(unittest.TestCase):
 
     def test_green_functions(self):
         S = self.S
-        fock = self.fock
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         _, G_grea_w = fourier_transform(m_grea, G_grea)
         _, G_less_w = fourier_transform(m_less, G_less)
@@ -496,13 +502,12 @@ class TestExtendedR0(unittest.TestCase):
 
     def test_fluctuation_dissipation_thm(self):
         S = self.S
-        fock = self.fock
         beta = 3.0
         Ef = 0.3
 
-        m_grea, G_grea = fock.get_G_grea(0, S)
-        m_less, G_less = fock.get_G_less(0, S)
-        m_dos, Dos_w = fock.get_DOS(0, S)
+        m_grea, G_grea = S.get_G_grea(0)
+        m_less, G_less = S.get_G_less(0)
+        m_dos, Dos_w = S.get_DOS(0)
 
         _, G_grea_w = fourier_transform(m_grea, G_grea)
         _, G_less_w = fourier_transform(m_less, G_less)
@@ -541,12 +546,9 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
 
         delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
-        fock = FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
-
-        S = SolverSteadyState(inv_R0, time_mesh, hybs, [0, 3])
+        S = SolverSteadyState(2, inv_R0, time_mesh)
+        S.add_bath(0, delta_grea, delta_less)
+        S.add_bath(1, delta_grea, delta_less)
 
         S.greater_loop(tol=1e-10, verbose=True, plot=False)
         S.lesser_loop(tol=1e-10, verbose=True)
@@ -554,11 +556,9 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
         # plt.plot(S.times, S.get_R_less()[:, 2].imag)
         # plt.show()
 
-        self.fock = fock
         self.S = S
 
     def test_values(self):
-        fock = self.fock
         S = self.S
 
         times_ref = np.linspace(-5.0, 5.0, 11)
@@ -581,26 +581,17 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
         )
         G_less_ref = np.conj(G_grea_ref)
 
-        # plt.plot(times_ref, G_grea_ref.real, "o-")
-        # plt.plot(S.times, fock.get_G_grea(0, S).real, "--")
-        # plt.xlim(-10, 10)
-        # plt.show()
-
-        # plt.plot(times_ref, G_less_ref.real, "o-")
-        # plt.plot(S.times, fock.get_G_less(0, S).real, "--")
-        # plt.xlim(-10, 10)
-        # plt.show()
-
-        m, G_grea = fock.get_G_grea(0, S)
+        m, G_grea = S.get_G_grea(0)
         G_grea = np.interp(times_ref, m.values(), G_grea)
         np.testing.assert_array_almost_equal(G_grea, G_grea_ref, 2)
 
-        m, G_less = fock.get_G_less(0, S)
+        m, G_less = S.get_G_less(0)
         G_less = np.interp(times_ref, m.values(), G_less)
         np.testing.assert_array_almost_equal(G_less, G_less_ref, 2)
 
 
 class TestExtendedR0VsHloc(unittest.TestCase):
+    @unittest.skip("Test will be removed")
     def test_compare_types_of_input(self):
         time_mesh = Mesh(10.0, 100)
         w = time_mesh.adjoint().values()
@@ -610,25 +601,25 @@ class TestExtendedR0VsHloc(unittest.TestCase):
         delta_grea = np.sin(w) + 1j * np.cos(w)
         delta_less = np.cos(w) + 1j * np.cos(w)
 
-        fock = FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
+        S_H = SolverSteadyState(2, H_loc, time_mesh)
+        S_H.add_bath(0, delta_grea, delta_less)
+        S_H.add_bath(1, delta_grea, delta_less)
 
-        S_H = SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
-        S_R = SolverSteadyState(inv_R0, time_mesh, hybs, [0, 3])
+        S_R = SolverSteadyState(2, inv_R0, time_mesh)
+        S_R.add_bath(0, delta_grea, delta_less)
+        S_R.add_bath(1, delta_grea, delta_less)
 
-        testing.assert_allclose(S_H.inv_R0_reta_w, S_R.inv_R0_reta_w)
+        testing.assert_allclose(S_H.core.inv_R0_reta_w, S_R.core.inv_R0_reta_w)
 
-        S_H.initialize_grea()
-        S_R.initialize_grea()
+        S_H.core.initialize_grea()
+        S_R.core.initialize_grea()
 
-        testing.assert_allclose(S_H.R_grea_w, S_R.R_grea_w)
+        testing.assert_allclose(S_H.core.R_grea_w, S_R.core.R_grea_w)
 
-        S_H.fixed_pt_function_grea(S_H.R_grea_w)
-        S_R.fixed_pt_function_grea(S_R.R_grea_w)
+        S_H.core.fixed_pt_function_grea(S_H.core.R_grea_w)
+        S_R.core.fixed_pt_function_grea(S_R.core.R_grea_w)
 
-        testing.assert_allclose(S_H.R_grea_w, S_R.R_grea_w)
+        testing.assert_allclose(S_H.core.R_grea_w, S_R.core.R_grea_w)
 
 
 if __name__ == "__main__":

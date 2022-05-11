@@ -1,6 +1,6 @@
 import numpy as np
 import string
-from .function_tools import fourier_transform, product_functions, sum_functions
+from .function_tools import fourier_transform
 
 
 def is_orb_in_state(orbital, state):
@@ -20,36 +20,6 @@ def states_containing(orbital, nr_orbitals):
     all_states = np.arange(2**nr_orbitals)
     contains = is_orb_in_state(orbital, all_states)
     return all_states[contains], all_states[~contains]
-
-
-def greater_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
-    R_grea = np.asarray(R_grea, dtype=complex)
-    R_less = np.asarray(R_less, dtype=complex)
-
-    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
-
-    G_grea = 0.0
-    for i in range(len(states_yes)):
-        s_no, s_yes = states_no[i], states_yes[i]
-        G_grea += R_less[::-1, s_no] * R_grea[:, s_yes]
-
-    G_grea *= 1j / Z
-    return time_mesh, G_grea
-
-
-def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
-    R_grea = np.asarray(R_grea, dtype=complex)
-    R_less = np.asarray(R_less, dtype=complex)
-
-    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
-
-    G_less = 0.0
-    for i in range(len(states_yes)):
-        s_no, s_yes = states_no[i], states_yes[i]
-        G_less += R_grea[::-1, s_no] * R_less[:, s_yes]
-
-    G_less *= -1j / Z
-    return time_mesh, G_less
 
 
 class StateSpace:
@@ -97,6 +67,19 @@ class StateSpace:
 
         return ",".join(s)
 
+    def get_states_by_parity(self):
+        """
+        Returns even, odd
+        """
+        even = []
+        odd = []
+        for n in self.all_states:
+            if bin(n).count("1") % 2 == 0:
+                even.append(n)
+            else:
+                odd.append(n)
+        return even, odd
+
     @property
     def basis(self):
         return self._basis
@@ -120,92 +103,6 @@ class StateSpace:
             b = np.delete(b, idx)
 
         return a, b
-
-
-class FermionicFockSpace:
-    # TODO: method for list of even states
-    def __init__(self, orbital_names, forbidden_states=None):
-        self.state_space = StateSpace(
-            len(orbital_names), orbital_names, forbidden_states
-        )
-        self.hybs = {}
-        for s in self.state_space.all_states:
-            self.hybs[s] = []
-        self.baths = []
-
-    def add_bath(self, orbital, delta_grea, delta_less):
-        """Only baths coupled to a single orbital for now"""
-        states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
-
-        for a, b in zip(states_a, states_b):
-            self.hybs[a].append((b, delta_grea, delta_less))
-            self.hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
-
-    def generate_hybridizations(self):
-        return self.hybs
-
-    def get_G_grea(self, orbital, solver):
-        """Returns G^>(t) on time grid used in solver"""
-        return greater_gf(
-            orbital,
-            self.state_space,
-            solver.time_mesh,
-            solver.get_R_grea(),
-            solver.get_R_less(),
-            solver.Z_loc,
-        )
-
-    def get_G_less(self, orbital, solver):
-        """Returns G^<(t) on time grid used in solver"""
-        return lesser_gf(
-            orbital,
-            self.state_space,
-            solver.time_mesh,
-            solver.get_R_grea(),
-            solver.get_R_less(),
-            solver.Z_loc,
-        )
-
-    def get_G_grea_w(self, orbital, solver):
-        m, g = self.get_G_grea(orbital, solver)
-        m, g = fourier_transform(m, g)
-        return m, g
-
-    def get_G_less_w(self, orbital, solver):
-        m, g = self.get_G_less(orbital, solver)
-        m, g = fourier_transform(m, g)
-        return m, g
-
-    def get_G_reta_w(self, orbital, solver):
-        """
-        Returns the retarded Green function in frequencies
-        """
-        m, G_less = self.get_G_less(orbital, solver)
-        m2, G_grea = self.get_G_grea(orbital, solver)
-
-        assert m is m2
-
-        G_reta = G_grea - G_less
-        idx0 = solver.N // 2
-        G_reta[:idx0] = 0.0
-        G_reta[idx0] *= 0.5
-        m, G_reta_w = fourier_transform(m, G_reta)
-        return m, G_reta_w
-
-    def get_DOS(self, orbital, solver):
-        """Returns density of states"""
-        m, G_less = self.get_G_less(orbital, solver)
-        m2, G_grea = self.get_G_grea(orbital, solver)
-
-        assert m is m2
-
-        dos = 1j * (G_grea - G_less) / (2 * np.pi)
-        m, dos = fourier_transform(m, dos)
-        return m, np.real(dos)
-
-
-def AIM_infinite_U():
-    return FermionicFockSpace(["up", "dn"], [3])
 
 
 def report_allclose(a, b, *args, **kwargs):

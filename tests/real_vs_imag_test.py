@@ -35,17 +35,14 @@ class TestParams1(unittest.TestCase):
 
         delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
-        fock = nca.FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
-
-        S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
+        S_real = nca.SolverSteadyState(2, H_loc, time_mesh)
+        S_real.add_bath(0, delta_grea, delta_less)
+        S_real.add_bath(1, delta_grea, delta_less)
 
         S_real.greater_loop(plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
-        freq_mesh, dos = fock.get_DOS(0, S_real)
+        freq_mesh, dos = S_real.get_DOS(0)
 
         idx_subset = np.arange(len(taus))[:: len(taus) // 30]
         idx_subset = np.append(idx_subset, len(taus) - 1)
@@ -101,17 +98,15 @@ class TestParamsInchworm(unittest.TestCase):
 
         delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
 
-        fock = nca.FermionicFockSpace(["up", "dn"])
-        fock.add_bath(0, delta_grea, delta_less)
-        fock.add_bath(1, delta_grea, delta_less)
-        hybs = fock.generate_hybridizations()
+        S_real = nca.SolverSteadyState(2, H_loc, time_mesh)
 
-        S_real = nca.SolverSteadyState(H_loc, time_mesh, hybs, [0, 3])
+        S_real.add_bath(0, delta_grea, delta_less)
+        S_real.add_bath(1, delta_grea, delta_less)
 
         S_real.greater_loop(plot=False, verbose=True)
         S_real.lesser_loop(plot=False, verbose=True)
 
-        freq_mesh, dos = fock.get_DOS(0, S_real)
+        freq_mesh, dos = S_real.get_DOS(0)
 
         idx_subset = np.arange(len(taus))[:: len(taus) // 30]
         idx_subset = np.append(idx_subset, len(taus) - 1)
