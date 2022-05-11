@@ -25,6 +25,14 @@ class SolverSteadyState:
         self.D = len(local_evol)
         self.Z_loc = self.D
 
+        self.even_states = list_even_states
+        self.odd_states = []
+        for i in range(self.D):
+            if i not in self.even_states:
+                self.odd_states.append(i)
+
+        self.D_half = max(len(self.even_states), len(self.odd_states))
+
         self.is_even_state = np.array(
             [(s in list_even_states) for s in range(self.D)], dtype=bool
         )
@@ -46,6 +54,17 @@ class SolverSteadyState:
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
 
+        self.state_parity_table = np.empty(self.D, dtype=int)
+        k_odd = 0
+        k_even = 0
+        for i in range(self.D):
+            if i in self.even_states:
+                self.state_parity_table[i] = k_even
+                k_even += 1
+            else:
+                self.state_parity_table[i] = k_odd
+                k_odd += 1
+
         self.normalization_error = []
 
     ############# greater ##############
@@ -54,42 +73,36 @@ class SolverSteadyState:
         idx0 = self.N // 2
         self.R_grea[:, states] /= 1.0j * self.R_grea[idx0, states]
 
-    def self_consistency_grea(self, states):
-        """R^>(t) ---> S^>(t)"""
-        other_states = ~states
+    def self_consistency_grea(self, parity_flag):
+        """
+        parity_flag: True for odd->even, False for even->odd
+        """
+        group_1, group_2 = self.even_states, self.odd_states
+        if parity_flag:
+            group_1, group_2 = group_2, group_1
 
-        R_grea = np.empty((self.N, self.D), dtype=complex)
+        R_grea = np.empty((self.N, self.D_half), dtype=complex)
 
-        for i in range(self.D):
-            if other_states[i]:
-                _, R_grea[:, i] = inv_fourier_transform(
-                    self.freq_mesh, self.R_grea_w[:, i]
-                )
-                R_grea[:, i] *= 1j
+        for k, s in enumerate(group_1):
+            _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
+        R_grea *= 1j
 
-        S_grea = np.zeros((self.N, self.D), dtype=complex)
+        S_grea = np.zeros((self.N, self.D_half), dtype=complex)
 
-        for a in np.arange(self.D)[states]:
+        for k, a in enumerate(group_2):
             for b, delta, _ in self.hybridizations[a]:
-                S_grea[:, a] += 1j * delta[:] * R_grea[:, b]
+                S_grea[:, k] += 1j * delta[:] * R_grea[:, self.state_parity_table[b]]
 
         del R_grea
 
         idx0 = self.N // 2
-        S_grea[:idx0, states] = 0.0
-        S_grea[idx0, states] *= 0.5
-        for i in range(self.D):
-            if states[i]:
-                _, S_grea[:, i] = fourier_transform(
-                    self.time_mesh, S_grea[:, i], axis=0
-                )
+        S_grea[:idx0, :] = 0.0
+        S_grea[idx0, :] *= 0.5
+        _, S_grea = fourier_transform(self.time_mesh, S_grea, axis=0)
 
-        for i in range(self.D):
-            if states[i]:
-                inv_R_reta_w = self.inv_R0_reta_w[:, i] - S_grea[:, i]
-                if not np.all(np.isfinite(inv_R_reta_w)):
-                    raise ZeroDivisionError
-                self.R_grea_w[:, i] = np.imag(2.0 / inv_R_reta_w)
+        for k, s in enumerate(group_2):
+            r = self.inv_R0_reta_w[:, s] - S_grea[:, k]
+            self.R_grea_w[:, s] = np.imag(2.0 / r)
 
     def get_R_grea_w(self):
         return self.R_grea_w.copy()
@@ -113,7 +126,7 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for a in np.arange(self.D)[even]:
+        for a in self.even_states:
             for b, delta, _ in self.hybridizations[a]:
                 delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
@@ -125,11 +138,8 @@ class SolverSteadyState:
     def fixed_pt_function_grea(self, R_grea_w):
         self.R_grea_w[...] = R_grea_w
 
-        even = self.is_even_state
-        odd = ~self.is_even_state
-
-        self.self_consistency_grea(odd)
-        self.self_consistency_grea(even)
+        self.self_consistency_grea(False)
+        self.self_consistency_grea(True)
 
         self.normalization_error.append(self.get_normalization_error())
 
@@ -195,33 +205,34 @@ class SolverSteadyState:
         return np.abs(norm + 2.0 * np.pi)
 
     ########## lesser ############
-    def self_consistency_less(self, states):
-        """R^<(t) ---> S^<(t)"""
-        other_states = ~states
+    def self_consistency_less(self, parity_flag):
+        """
+        parity_flag: True for odd->even, False for even->odd
+        """
+        group_1, group_2 = self.even_states, self.odd_states
+        if parity_flag:
+            group_1, group_2 = group_2, group_1
 
-        R_less = np.empty((self.N, self.D), dtype=complex)
+        R_less = np.empty((self.N, self.D_half), dtype=complex)
 
-        for i in range(self.D):
-            if other_states[i]:
-                _, R_less[:, i] = inv_fourier_transform(
-                    self.freq_mesh, self.R_less_w[:, i], axis=0
-                )
-                R_less[:, i] *= 1.0j
+        for k, s in enumerate(group_1):
+            _, R_less[:, k] = inv_fourier_transform(
+                self.freq_mesh, self.R_less_w[:, s], axis=0
+            )
+        R_less *= 1.0j
 
-        S_less = np.zeros((self.N, self.D), dtype=complex)
+        S_less = np.zeros((self.N, self.D_half), dtype=complex)
 
-        for a in np.arange(self.D)[states]:
+        for k, a in enumerate(group_2):
             for b, _, delta in self.hybridizations[a]:
-                S_less[:, a] += -1j * delta[:] * R_less[:, b]
+                S_less[:, k] += -1j * delta[:] * R_less[:, self.state_parity_table[b]]
 
         del R_less
 
-        for i in range(self.D):
-            if states[i]:
-                _, ft = fourier_transform(self.time_mesh, S_less[:, i])
-                S_less[:, i] = ft.imag
+        _, S_less = fourier_transform(self.time_mesh, S_less, axis=0)
 
-        self.R_less_w[:, states] = self.R_reta_sqr_w[:, states] * S_less[:, states]
+        for k, s in enumerate(group_2):
+            self.R_less_w[:, s] = self.R_reta_sqr_w[:, s] * S_less[:, k].imag
 
     def get_R_less_w(self):
         return self.R_less_w.copy()
@@ -245,7 +256,7 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for a in np.arange(self.D)[even]:
+        for a in self.even_states:
             for b, _, delta in self.hybridizations[a]:
                 delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
@@ -259,13 +270,11 @@ class SolverSteadyState:
         self.normalize_less_w()
 
     def fixed_pt_function_less(self, R_less_w):
-        even = self.is_even_state
-        odd = ~self.is_even_state
 
         self.R_less_w[...] = R_less_w.reshape((-1, self.D))
 
-        self.self_consistency_less(odd)
-        self.self_consistency_less(even)
+        self.self_consistency_less(False)
+        self.self_consistency_less(True)
 
         self.normalize_less_w()
 
