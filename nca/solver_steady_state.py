@@ -155,9 +155,7 @@ class SolverSteadyState:
         verbose=False,
     ):
         def err_func(R):
-            e = 0.0
-            for i in range(self.D):
-                e += np.trapz(np.abs(R[:, i]), dx=self.freq_mesh.delta)
+            e = np.sum(np.trapz(np.abs(R), dx=self.freq_mesh.delta, axis=0))
             return e / self.D
 
         def callback_func(R, n_iter):
@@ -284,9 +282,7 @@ class SolverSteadyState:
 
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
         def err_func(R):
-            e = 0.0
-            for i in range(self.D):
-                e += np.trapz(np.abs(R[:, i]), dx=self.freq_mesh.delta)
+            e = np.sum(np.trapz(np.abs(R), dx=self.freq_mesh.delta, axis=0))
             return e / self.D
 
         def callback_func(R, n_iter):
