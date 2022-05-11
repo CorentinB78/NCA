@@ -52,8 +52,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_reta_w_ref = data[:, 1:]
 
-        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_grea_w[:, 0])
-        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_grea_w[:, 1])
+        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 0])
+        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 1])
 
         testing.assert_allclose(
             1j * R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
@@ -70,8 +70,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_less_w_ref = data[:, 1:]
 
-        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 0])
-        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.R_less_w[:, 1])
+        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 0])
+        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 1])
 
         testing.assert_allclose(
             1j * R_less_w_0, R_less_w_ref[:, 0], atol=1e-4, rtol=1e-2
@@ -80,41 +80,23 @@ class TestParams1(unittest.TestCase):
             1j * R_less_w_1, R_less_w_ref[:, 1], atol=1e-4, rtol=1e-2
         )
 
-    def test_R_fourier_transforms(self):
-        S = self.S
-        for i in range(4):
-            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
-            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
-
-            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
-            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
-
-    def test_S_fourier_transform(self):
-        S = self.S
-        for i in range(4):
-            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
-            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
-
-            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
-            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
-
     def test_RS_symmetries(self):
         S = self.S
 
         ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
-        testing.assert_array_less(S.R_less_w, 1e-8)
-        testing.assert_array_less(S.R_grea_w, 1e-8)
-        testing.assert_array_less(S.S_less_w, 1e-8)
-        testing.assert_array_less(S.S_grea_w, 1e-8)
+        testing.assert_array_less(S.get_R_less_w(), 1e-8)
+        testing.assert_array_less(S.get_R_grea_w(), 1e-8)
+        testing.assert_array_less(S.get_S_less_w(), 1e-8)
+        testing.assert_array_less(S.get_S_grea_w(), 1e-8)
 
     def test_R_normalization(self):
         S = self.S
         idx0 = S.N // 2
 
         for k in range(4):
-            self.assertAlmostEqual(S.R_grea[idx0, k], -1j, 4)
+            self.assertAlmostEqual(S.get_R_grea()[idx0, k], -1j, 4)
 
-        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -4j, 4)
+        self.assertAlmostEqual(np.sum(S.get_R_less()[idx0, :]), -4j, 4)
 
     def test_get_normalization_error(self):
         norm_err = self.S.get_normalization_error()
@@ -196,29 +178,30 @@ class TestSelfEnergy(unittest.TestCase):
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
         np.testing.assert_array_almost_equal(
-            S.S_grea[:, 0],
-            1j * np.conj(Delta_less_up) * S.R_grea[:, 1]
-            + 1j * np.conj(Delta_less_dn) * S.R_grea[:, 2],
+            S.get_S_grea()[:, 0],
+            1j * np.conj(Delta_less_up) * S.get_R_grea()[:, 1]
+            + 1j * np.conj(Delta_less_dn) * S.get_R_grea()[:, 2],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea[:, 1],
-            1j * Delta_grea_up * S.R_grea[:, 0]
-            + 1j * np.conj(Delta_less_dn) * S.R_grea[:, 3],
+            S.get_S_grea()[:, 1],
+            1j * Delta_grea_up * S.get_R_grea()[:, 0]
+            + 1j * np.conj(Delta_less_dn) * S.get_R_grea()[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea[:, 2],
-            1j * Delta_grea_dn * S.R_grea[:, 0]
-            + 1j * np.conj(Delta_less_up) * S.R_grea[:, 3],
+            S.get_S_grea()[:, 2],
+            1j * Delta_grea_dn * S.get_R_grea()[:, 0]
+            + 1j * np.conj(Delta_less_up) * S.get_R_grea()[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_grea[:, 3],
-            1j * Delta_grea_dn * S.R_grea[:, 1] + 1j * Delta_grea_up * S.R_grea[:, 2],
+            S.get_S_grea()[:, 3],
+            1j * Delta_grea_dn * S.get_R_grea()[:, 1]
+            + 1j * Delta_grea_up * S.get_R_grea()[:, 2],
             10,
         )
 
@@ -233,29 +216,30 @@ class TestSelfEnergy(unittest.TestCase):
         # states: 0 = empty, 1 = up, 2 = down, 3 = both
 
         np.testing.assert_array_almost_equal(
-            S.S_less[:, 0],
-            -1j * np.conj(Delta_grea_up) * S.R_less[:, 1]
-            - 1j * np.conj(Delta_grea_dn) * S.R_less[:, 2],
+            S.get_S_less()[:, 0],
+            -1j * np.conj(Delta_grea_up) * S.get_R_less()[:, 1]
+            - 1j * np.conj(Delta_grea_dn) * S.get_R_less()[:, 2],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_less[:, 1],
-            -1j * Delta_less_up * S.R_less[:, 0]
-            - 1j * np.conj(Delta_grea_dn) * S.R_less[:, 3],
+            S.get_S_less()[:, 1],
+            -1j * Delta_less_up * S.get_R_less()[:, 0]
+            - 1j * np.conj(Delta_grea_dn) * S.get_R_less()[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_less[:, 2],
-            -1j * Delta_less_dn * S.R_less[:, 0]
-            - 1j * np.conj(Delta_grea_up) * S.R_less[:, 3],
+            S.get_S_less()[:, 2],
+            -1j * Delta_less_dn * S.get_R_less()[:, 0]
+            - 1j * np.conj(Delta_grea_up) * S.get_R_less()[:, 3],
             10,
         )
 
         np.testing.assert_array_almost_equal(
-            S.S_less[:, 3],
-            -1j * Delta_less_dn * S.R_less[:, 1] - 1j * Delta_less_up * S.R_less[:, 2],
+            S.get_S_less()[:, 3],
+            -1j * Delta_less_dn * S.get_R_less()[:, 1]
+            - 1j * Delta_less_up * S.get_R_less()[:, 2],
             10,
         )
 
@@ -363,41 +347,23 @@ class TestInfiniteU(unittest.TestCase):
     def test_sanity_checks(self):
         sanity_checks(self.S, self.fock)
 
-    def test_R_fourier_transforms(self):
-        S = self.S
-        for i in range(3):
-            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
-            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
-
-            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
-            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
-
-    def test_S_fourier_transform(self):
-        S = self.S
-        for i in range(3):
-            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
-            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
-
-            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
-            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
-
     def test_RS_symmetries(self):
         S = self.S
 
         ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
-        testing.assert_array_less(S.R_less_w, 1e-8)
-        testing.assert_array_less(S.R_grea_w, 1e-8)
-        testing.assert_array_less(S.S_less_w, 1e-8)
-        testing.assert_array_less(S.S_grea_w, 1e-8)
+        testing.assert_array_less(S.get_R_less_w(), 1e-8)
+        testing.assert_array_less(S.get_R_grea_w(), 1e-8)
+        testing.assert_array_less(S.get_S_less_w(), 1e-8)
+        testing.assert_array_less(S.get_S_grea_w(), 1e-8)
 
     def test_R_normalization(self):
         S = self.S
         idx0 = S.N // 2
 
         for k in range(3):
-            self.assertAlmostEqual(S.R_grea[idx0, k], -1j, 4)
+            self.assertAlmostEqual(S.get_R_grea()[idx0, k], -1j, 4)
 
-        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -3j, 4)
+        self.assertAlmostEqual(np.sum(S.get_R_less()[idx0, :]), -3j, 4)
 
     def test_green_functions(self):
         S = self.S
@@ -488,41 +454,23 @@ class TestExtendedR0(unittest.TestCase):
         cls.fock = fock
         cls.S = S
 
-    def test_R_fourier_transforms(self):
-        S = self.S
-        for i in range(4):
-            _, R_less_w_ref = fourier_transform(S.time_mesh, S.R_less[:, i], axis=0)
-            testing.assert_allclose(R_less_w_ref, 1j * S.R_less_w[:, i], atol=1e-3)
-
-            _, R_grea_w_ref = fourier_transform(S.time_mesh, S.R_grea[:, i], axis=0)
-            testing.assert_allclose(R_grea_w_ref, 1j * S.R_grea_w[:, i], atol=1e-3)
-
-    def test_S_fourier_transform(self):
-        S = self.S
-        for i in range(4):
-            _, S_less_w_ref = fourier_transform(S.time_mesh, S.S_less[:, i], axis=0)
-            testing.assert_allclose(S_less_w_ref, 1j * S.S_less_w[:, i], atol=1e-3)
-
-            _, S_grea_w_ref = fourier_transform(S.time_mesh, S.S_grea[:, i], axis=0)
-            testing.assert_allclose(S_grea_w_ref, 1j * S.S_grea_w[:, i], atol=1e-3)
-
     def test_RS_symmetries(self):
         S = self.S
 
         ### symmetries: diagonal lessers and greaters are negative (pure imaginary)
-        testing.assert_array_less(S.R_less_w, 1e-8)
-        testing.assert_array_less(S.R_grea_w, 1e-8)
-        testing.assert_array_less(S.S_less_w, 1e-8)
-        testing.assert_array_less(S.S_grea_w, 1e-8)
+        testing.assert_array_less(S.get_R_less_w(), 1e-8)
+        testing.assert_array_less(S.get_R_grea_w(), 1e-8)
+        testing.assert_array_less(S.get_S_less_w(), 1e-8)
+        testing.assert_array_less(S.get_S_grea_w(), 1e-8)
 
     def test_R_normalization(self):
         S = self.S
         idx0 = S.N // 2
 
         for k in range(4):
-            self.assertAlmostEqual(S.R_grea[idx0, k], -1j, 4)
+            self.assertAlmostEqual(S.get_R_grea()[idx0, k], -1j, 4)
 
-        self.assertAlmostEqual(np.sum(S.R_less[idx0, :]), -4j, 4)
+        self.assertAlmostEqual(np.sum(S.get_R_less()[idx0, :]), -4j, 4)
 
     def test_green_functions(self):
         S = self.S
@@ -602,8 +550,8 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
 
         S.greater_loop(tol=1e-10, verbose=True, plot=False)
         S.lesser_loop(tol=1e-10, verbose=True)
-        # plt.plot(S.times, S.R_less[:, 2].real)
-        # plt.plot(S.times, S.R_less[:, 2].imag)
+        # plt.plot(S.times, S.get_R_less()[:, 2].real)
+        # plt.plot(S.times, S.get_R_less()[:, 2].imag)
         # plt.show()
 
         self.fock = fock
@@ -681,9 +629,6 @@ class TestExtendedR0VsHloc(unittest.TestCase):
         S_R.fixed_pt_function_grea(S_R.R_grea_w)
 
         testing.assert_allclose(S_H.R_grea_w, S_R.R_grea_w)
-        testing.assert_allclose(S_H.R_grea, S_R.R_grea)
-        testing.assert_allclose(S_H.S_reta_w, S_R.S_reta_w)
-        testing.assert_allclose(S_H.S_grea, S_R.S_grea)
 
 
 if __name__ == "__main__":

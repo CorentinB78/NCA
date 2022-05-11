@@ -33,12 +33,6 @@ class SolverSteadyState:
         self.time_mesh = time_mesh
         self.freq_mesh = time_mesh.adjoint()
 
-        self.R_less = np.zeros((N, self.D), dtype=complex)
-        self.R_grea = np.zeros((N, self.D), dtype=complex)
-
-        self.S_less = np.zeros((N, self.D), dtype=complex)
-        self.S_grea = np.zeros((N, self.D), dtype=complex)
-
         self.inv_R0_reta_w = np.empty((N, self.D), dtype=complex)
         for s, g in enumerate(local_evol):
             if isinstance(g, complex) or isinstance(g, float):
@@ -49,57 +43,69 @@ class SolverSteadyState:
         self.R_grea_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
         self.R_less_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
 
-        self.S_less_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
-        self.S_grea_w = None  # imaginary part only
-        self.S_reta_w = np.zeros((N, self.D), dtype=complex)
-
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
 
         self.normalization_error = []
 
     ############# greater ##############
-    def go_to_times_grea(self, states):
-        """\tilde R^>(w) ---> R^>(t)"""
-        for i in range(self.D):
-            if states[i]:
-                _, self.R_grea[:, i] = inv_fourier_transform(
-                    self.freq_mesh, self.R_grea_w[:, i]
-                )
-                self.R_grea[:, i] *= 1j
 
     def normalize_grea(self, states):
         idx0 = self.N // 2
         self.R_grea[:, states] /= 1.0j * self.R_grea[idx0, states]
 
-    def self_energy_grea(self, states):
+    def self_consistency_grea(self, states):
         """R^>(t) ---> S^>(t)"""
-        self.S_grea[:, states] = 0.0
+        other_states = ~states
+
+        R_grea = np.empty((self.N, self.D), dtype=complex)
+
+        for i in range(self.D):
+            if other_states[i]:
+                _, R_grea[:, i] = inv_fourier_transform(
+                    self.freq_mesh, self.R_grea_w[:, i]
+                )
+                R_grea[:, i] *= 1j
+
+        S_grea = np.zeros((self.N, self.D), dtype=complex)
 
         for a in np.arange(self.D)[states]:
             for b, delta, _ in self.hybridizations[a]:
-                self.S_grea[:, a] += 1j * delta[:] * self.R_grea[:, b]
+                S_grea[:, a] += 1j * delta[:] * R_grea[:, b]
 
-    def back_to_freqs_grea(self, states):
-        """S^>(t) ---> \tilde S^>(w)"""
+        del R_grea
+
         idx0 = self.N // 2
-        self.S_reta_w[:idx0, states] = 0.0
-        self.S_reta_w[idx0:, states] = self.S_grea[idx0:, states]
-        self.S_reta_w[idx0, states] *= 0.5
+        S_grea[:idx0, states] = 0.0
+        S_grea[idx0, states] *= 0.5
         for i in range(self.D):
             if states[i]:
-                _, self.S_reta_w[:, i] = fourier_transform(
-                    self.time_mesh, self.S_reta_w[:, i], axis=0
+                _, S_grea[:, i] = fourier_transform(
+                    self.time_mesh, S_grea[:, i], axis=0
                 )
 
-    def propagator_grea(self, states):
-        """\tilde S^>(w) ---> \tilde R^>(w)"""
         for i in range(self.D):
             if states[i]:
-                inv_R_reta_w = self.inv_R0_reta_w[:, i] - self.S_reta_w[:, i]
+                inv_R_reta_w = self.inv_R0_reta_w[:, i] - S_grea[:, i]
                 if not np.all(np.isfinite(inv_R_reta_w)):
                     raise ZeroDivisionError
                 self.R_grea_w[:, i] = np.imag(2.0 / inv_R_reta_w)
+
+    def get_R_grea_w(self):
+        return self.R_grea_w.copy()
+
+    def get_R_grea(self):
+        _, R_grea = inv_fourier_transform(self.freq_mesh, self.R_grea_w, axis=0)
+        return R_grea * 1j
+
+    def get_R_reta_w(self):
+        R_grea = self.get_R_grea()
+        idx0 = self.N // 2
+
+        R_grea[:idx0, :] = 0.0
+        R_grea[idx0, :] *= 0.5
+        _, R_reta_w = fourier_transform(self.time_mesh, R_grea, axis=0)
+        return R_reta_w
 
     def initialize_grea(self):
         even = self.is_even_state
@@ -122,16 +128,8 @@ class SolverSteadyState:
         even = self.is_even_state
         odd = ~self.is_even_state
 
-        self.go_to_times_grea(even)
-        # self.normalize_grea(even)
-        self.self_energy_grea(odd)
-        self.back_to_freqs_grea(odd)
-        self.propagator_grea(odd)
-        self.go_to_times_grea(odd)
-        # self.normalize_grea(odd)
-        self.self_energy_grea(even)
-        self.back_to_freqs_grea(even)
-        self.propagator_grea(even)
+        self.self_consistency_grea(odd)
+        self.self_consistency_grea(even)
 
         self.normalization_error.append(self.get_normalization_error())
 
@@ -175,15 +173,9 @@ class SolverSteadyState:
             plt.legend()
             plt.xlim(-20, 15)
 
-        idx0 = self.N // 2
-        R_reta = self.R_grea.copy()
-        R_reta[:idx0, :] = 0.0
-        R_reta[idx0, :] *= 0.5
-        for i in range(self.D):
-            _, R_reta[:, i] = fourier_transform(self.time_mesh, R_reta[:, i])
-        self.R_reta_sqr_w = np.abs(R_reta) ** 2
+        self.R_reta_sqr_w = np.abs(self.get_R_reta_w()) ** 2
 
-        self.S_grea_w = 2.0 * self.S_reta_w.imag
+        # self.S_grea_w = 2.0 * self.S_reta_w.imag
 
     def check_quality_grid(self, tol_delta):
         _, _, w, der2 = tb.derivate_twice(self.freqs, self.R_grea_w, axis=0)
@@ -203,44 +195,40 @@ class SolverSteadyState:
         return np.abs(norm + 2.0 * np.pi)
 
     ########## lesser ############
-    def go_to_times_less(self, states):
-        """R^<(w) ---> R^<(t)"""
+    def self_consistency_less(self, states):
+        """R^<(t) ---> S^<(t)"""
+        other_states = ~states
+
+        R_less = np.empty((self.N, self.D), dtype=complex)
+
         for i in range(self.D):
-            if states[i]:
-                _, self.R_less[:, i] = inv_fourier_transform(
+            if other_states[i]:
+                _, R_less[:, i] = inv_fourier_transform(
                     self.freq_mesh, self.R_less_w[:, i], axis=0
                 )
-                self.R_less[:, i] *= 1.0j
+                R_less[:, i] *= 1.0j
 
-    def self_energy_less(self, states):
-        """R^<(t) ---> S^<(t)"""
-        self.S_less[:, states] = 0.0
+        S_less = np.zeros((self.N, self.D), dtype=complex)
 
         for a in np.arange(self.D)[states]:
             for b, _, delta in self.hybridizations[a]:
-                self.S_less[:, a] += -1j * delta[:] * self.R_less[:, b]
+                S_less[:, a] += -1j * delta[:] * R_less[:, b]
 
-    def back_to_freqs_less(self, states):
-        """S^<(t) ---> S^<(w)"""
+        del R_less
+
         for i in range(self.D):
             if states[i]:
-                _, ft = fourier_transform(self.time_mesh, self.S_less[:, i])
-                self.S_less_w[:, i] = ft.imag
+                _, ft = fourier_transform(self.time_mesh, S_less[:, i])
+                S_less[:, i] = ft.imag
 
-    def propagator_less(self, states):
-        """S^<(w) ---> R^<(w)"""
-        self.R_less_w[:, states] = (
-            self.R_reta_sqr_w[:, states] * self.S_less_w[:, states]
-        )
+        self.R_less_w[:, states] = self.R_reta_sqr_w[:, states] * S_less[:, states]
 
-    def normalize_less_t(self):
-        idx0 = self.N // 2
-        Z = -np.sum(self.R_less[idx0].imag)
-        if Z == 0.0:
-            print(self.R_less[idx0])
-            raise ZeroDivisionError
-        self.R_less_w *= self.Z_loc / Z
-        self.R_less *= self.Z_loc / Z
+    def get_R_less_w(self):
+        return self.R_less_w.copy()
+
+    def get_R_less(self):
+        _, R_less = inv_fourier_transform(self.freq_mesh, self.R_less_w, axis=0)
+        return R_less * 1j
 
     def normalize_less_w(self):
         Z = 0.0
@@ -250,7 +238,6 @@ class SolverSteadyState:
         if Z == 0.0:
             raise ZeroDivisionError
         self.R_less_w *= self.Z_loc / Z
-        self.R_less *= self.Z_loc / Z
 
     def initialize_less(self):
         even = self.is_even_state
@@ -277,18 +264,9 @@ class SolverSteadyState:
 
         self.R_less_w[...] = R_less_w.reshape((-1, self.D))
 
-        self.go_to_times_less(even)
-        # self.normalize_less_t()
-        self.self_energy_less(odd)
-        self.back_to_freqs_less(odd)
-        self.propagator_less(odd)
-        # self.normalize_less_w()
+        self.self_consistency_less(odd)
+        self.self_consistency_less(even)
 
-        self.go_to_times_less(odd)
-        # self.normalize_less_t()
-        self.self_energy_less(even)
-        self.back_to_freqs_less(even)
-        self.propagator_less(even)
         self.normalize_less_w()
 
         self.nr_less_feval += 2
@@ -322,8 +300,6 @@ class SolverSteadyState:
             err_func=err_func,
             alpha=alpha,
         )
-
-        self.go_to_times_less(np.ones(self.D, dtype=bool))
 
         if plot:
             plt.legend()

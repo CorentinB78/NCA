@@ -150,8 +150,8 @@ class FermionicFockSpace:
             orbital,
             self.state_space,
             solver.time_mesh,
-            solver.R_grea,
-            solver.R_less,
+            solver.get_R_grea(),
+            solver.get_R_less(),
             solver.Z_loc,
         )
 
@@ -161,8 +161,8 @@ class FermionicFockSpace:
             orbital,
             self.state_space,
             solver.time_mesh,
-            solver.R_grea,
-            solver.R_less,
+            solver.get_R_grea(),
+            solver.get_R_less(),
             solver.Z_loc,
         )
 
