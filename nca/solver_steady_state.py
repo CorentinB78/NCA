@@ -6,15 +6,13 @@ import toolbox as tb
 
 
 class SolverSteadyState:
-    def __init__(
-        self, local_evol, time_mesh, hybridizations, list_even_states, energy_shift=None
-    ):
+    def __init__(self, local_evol, time_mesh, hybridizations, list_even_states):
         """
         Real time Non-Crossing Approximation (NCA) solver for steady states.
 
         For now only diagonal hybridizations and local hamiltonians are supported. TODO.
 
-        * local_evol: list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`. All local evolutions should be energy shifted according to `energy_shift`, if applicable.
+        * local_evol: list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
         * time_mesh: an instance of `Mesh`.
         * hybridizations: list of hybridization processes. Each process is a tuple (a, b, delta_grea, delta_less) where a, b are states (identified by an int within range(D)) and delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from a to b then back to a. Conjugate processes are not added automatically.
         Optionnaly, several processes can be regrouped if they share the same hybridization functions, then a and b should be 1D arrays.
@@ -58,10 +56,6 @@ class SolverSteadyState:
         self.S_grea_w = None  # imaginary part only
         self.S_reta_w = np.zeros((N, self.D), dtype=complex)
 
-        self.energy_shift = np.zeros(self.D)
-        if energy_shift is not None:
-            self.energy_shift += energy_shift
-
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
 
@@ -97,16 +91,7 @@ class SolverSteadyState:
                     R_grea_b = interp(
                         self.time_meshes[a], self.time_meshes[b], self.R_grea[:, b]
                     )
-                    self.S_grea[:, a] += (
-                        1j
-                        * delta[:]
-                        * R_grea_b
-                        * np.exp(
-                            1j
-                            * (self.energy_shift[a] - self.energy_shift[b])
-                            * self.time_meshes[a].values()
-                        )
-                    )
+                    self.S_grea[:, a] += 1j * delta[:] * R_grea_b
 
     def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
@@ -263,16 +248,7 @@ class SolverSteadyState:
                     R_less_b = interp(
                         self.time_meshes[a], self.time_meshes[b], self.R_less[:, b]
                     )
-                    self.S_less[:, a] += (
-                        -1j
-                        * delta[:]
-                        * R_less_b
-                        * np.exp(
-                            1j
-                            * (self.energy_shift[a] - self.energy_shift[b])
-                            * self.time_meshes[a].values()
-                        )
-                    )
+                    self.S_less[:, a] += -1j * delta[:] * R_less_b
 
     def back_to_freqs_less(self, states):
         """S^<(t) ---> S^<(w)"""

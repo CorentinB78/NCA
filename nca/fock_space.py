@@ -21,7 +21,7 @@ def states_containing(orbital, nr_orbitals):
     return all_states[contains], all_states[~contains]
 
 
-def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, Z):
+def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
     if orbital >= nr_orbitals:
         raise ValueError
 
@@ -38,15 +38,13 @@ def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, 
             R_grea[:, s_yes],
         )
 
-        gg = gg * np.exp(1j * (energy_shift[s_no] - energy_shift[s_yes]) * m.values())
-
         mesh, G_grea = sum_functions(mesh, G_grea, m, gg)
 
     G_grea *= 1j / Z
     return mesh, G_grea
 
 
-def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, Z):
+def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
     if orbital >= nr_orbitals:
         raise ValueError
 
@@ -62,8 +60,6 @@ def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, energy_shift, Z
             time_meshes[s_yes],
             R_less[:, s_yes],
         )
-
-        gg = gg * np.exp(1j * (energy_shift[s_no] - energy_shift[s_yes]) * m.values())
 
         mesh, G_less = sum_functions(mesh, G_less, m, gg)
 
@@ -122,7 +118,6 @@ class FermionicFockSpace:
             solver.time_meshes,
             solver.R_grea,
             solver.R_less,
-            solver.energy_shift,
             solver.Z_loc,
         )
 
@@ -134,7 +129,6 @@ class FermionicFockSpace:
             solver.time_meshes,
             solver.R_grea,
             solver.R_less,
-            solver.energy_shift,
             solver.Z_loc,
         )
 
@@ -240,11 +234,7 @@ class AIM_infinite_U(FermionicFockSpace):
             solver.R_grea[:, 1],
         )
 
-        G_grea *= 1j * np.exp(
-            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * mesh.values()
-        )
-
-        G_grea /= solver.Z_loc
+        G_grea *= 1j / solver.Z_loc
         return mesh, G_grea
 
     def get_G_less(self, orbital, solver):
@@ -258,11 +248,8 @@ class AIM_infinite_U(FermionicFockSpace):
             solver.time_meshes[0],
             solver.R_grea[::-1, 0],
         )
-        G_less *= -1j * np.exp(
-            -1j * (solver.energy_shift[1] - solver.energy_shift[0]) * mesh.values()
-        )
 
-        G_less /= solver.Z_loc
+        G_less *= -1j / solver.Z_loc
         return mesh, G_less
 
 
