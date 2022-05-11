@@ -37,8 +37,6 @@ class TestParams1(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        print(fock.basis())
-
         S = SolverSteadyState(H_loc, mesh, hybs, [0, 3])
 
         S.greater_loop(plot=False, verbose=True)
@@ -361,8 +359,6 @@ class TestInfiniteU(unittest.TestCase):
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
 
-        print(fock.basis())
-
         S = SolverSteadyState(H_loc, mesh, hybs, [0])
 
         S.greater_loop(plot=False, verbose=True)
@@ -371,6 +367,7 @@ class TestInfiniteU(unittest.TestCase):
         cls.fock = fock
         cls.S = S
 
+    @unittest.skip("sanity check should be removed")
     def test_sanity_checks(self):
         sanity_checks(self.S, self.fock)
 
@@ -498,8 +495,6 @@ class TestExtendedR0(unittest.TestCase):
         fock.add_bath(0, delta_grea, delta_less)
         fock.add_bath(1, delta_grea, delta_less)
         hybs = fock.generate_hybridizations()
-
-        print(fock.basis())
 
         S = SolverSteadyState(inv_R0, mesh, hybs, [0, 3])
 

@@ -1,4 +1,5 @@
 import numpy as np
+import string
 from .function_tools import fourier_transform, product_functions, sum_functions
 
 
@@ -21,11 +22,11 @@ def states_containing(orbital, nr_orbitals):
     return all_states[contains], all_states[~contains]
 
 
-def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
-    if orbital >= nr_orbitals:
-        raise ValueError
+def greater_gf(orbital, state_space, time_meshes, R_grea, R_less, Z):
+    R_grea = np.asarray(R_grea, dtype=complex)
+    R_less = np.asarray(R_less, dtype=complex)
 
-    states_yes, states_no = states_containing(orbital, nr_orbitals)
+    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
 
     mesh = None
     G_grea = 0.0
@@ -44,11 +45,11 @@ def greater_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
     return mesh, G_grea
 
 
-def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
-    if orbital >= nr_orbitals:
-        raise ValueError
+def lesser_gf(orbital, state_space, time_meshes, R_grea, R_less, Z):
+    R_grea = np.asarray(R_grea, dtype=complex)
+    R_less = np.asarray(R_less, dtype=complex)
 
-    states_yes, states_no = states_containing(orbital, nr_orbitals)
+    states_yes, states_no = state_space.get_state_pairs_from_orbital(orbital)
 
     mesh = None
     G_less = 0.0
@@ -67,14 +68,39 @@ def lesser_gf(orbital, nr_orbitals, time_meshes, R_grea, R_less, Z):
     return mesh, G_less
 
 
-class FermionicFockSpace:
-    # TODO: method for list of even states
-    def __init__(self, orbital_names):
-        self.orbital_names = orbital_names
-        self.nr_orbitals = len(orbital_names)
-        self.baths = []
+class StateSpace:
+    def __init__(self, nr_orbitals, orbital_names=None, forbidden_states=None):
+        if orbital_names is not None:
+            assert len(orbital_names) == nr_orbitals
+            self.orbital_names = orbital_names
+        else:
+            self.orbital_names = list(string.ascii_lowercase)[:nr_orbitals]
 
-    def state_string(self, state):
+        self.nr_orbitals = nr_orbitals
+
+        if forbidden_states is not None:
+            self.forbidden_states = forbidden_states
+        else:
+            self.forbidden_states = []
+
+        all_states = np.arange(2**self.nr_orbitals)
+        self._basis = [self.get_state_label(s) for s in all_states]
+
+        idx = []
+        for i in range(len(all_states)):
+            if all_states[i] in self.forbidden_states:
+                idx.append(i)
+
+        self._all_states = np.delete(all_states, idx)
+
+    def __contains__(self, state):
+        if state < 0 or state >= 2**self.nr_orbitals:
+            return False
+        if state in self.forbidden_states:
+            return False
+        return True
+
+    def get_state_label(self, state):
         """
         Represent a state as a string of the filled orbital names
         """
@@ -87,34 +113,58 @@ class FermionicFockSpace:
 
         return ",".join(s)
 
+    @property
     def basis(self):
-        all_states = np.arange(2**self.nr_orbitals)
-        out = [self.state_string(s) for s in all_states]
-        return out
+        return self._basis
+
+    @property
+    def all_states(self):
+        return self._all_states
+
+    def get_state_pairs_from_orbital(self, orbital):
+        if orbital >= self.nr_orbitals:
+            raise ValueError
+        a, b = states_containing(orbital, self.nr_orbitals)
+
+        if len(self.forbidden_states) > 0:
+            idx = []
+            for i in range(len(a)):
+                if a[i] in self.forbidden_states or b[i] in self.forbidden_states:
+                    idx.append(i)
+
+            a = np.delete(a, idx)
+            b = np.delete(b, idx)
+
+        return a, b
+
+
+class FermionicFockSpace:
+    # TODO: method for list of even states
+    def __init__(self, orbital_names, forbidden_states=None):
+        self.state_space = StateSpace(
+            len(orbital_names), orbital_names, forbidden_states
+        )
+        self.hybs = {}
+        for s in self.state_space.all_states:
+            self.hybs[s] = []
+        self.baths = []
 
     def add_bath(self, orbital, delta_grea, delta_less):
         """Only baths coupled to a single orbital for now"""
-        self.baths.append((orbital, delta_grea, delta_less))
+        states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
+
+        for a, b in zip(states_a, states_b):
+            self.hybs[a].append((b, delta_grea, delta_less))
+            self.hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
 
     def generate_hybridizations(self):
-        hyb = []
-
-        for orbital, delta_grea, delta_less in self.baths:
-            states_a, states_b = states_containing(orbital, self.nr_orbitals)
-
-            ### particle processes
-            hyb.append((states_a, states_b, delta_grea, delta_less))
-
-            ### hole processes
-            hyb.append((states_b, states_a, np.conj(delta_less), np.conj(delta_grea)))
-
-        return hyb
+        return self.hybs
 
     def get_G_grea(self, orbital, solver):
         """Returns G^>(t) on time grid used in solver"""
         return greater_gf(
             orbital,
-            self.nr_orbitals,
+            self.state_space,
             solver.time_meshes,
             solver.R_grea,
             solver.R_less,
@@ -125,7 +175,7 @@ class FermionicFockSpace:
         """Returns G^<(t) on time grid used in solver"""
         return lesser_gf(
             orbital,
-            self.nr_orbitals,
+            self.state_space,
             solver.time_meshes,
             solver.R_grea,
             solver.R_less,
@@ -170,87 +220,8 @@ class FermionicFockSpace:
         return m, np.real(dos)
 
 
-class AIM_infinite_U(FermionicFockSpace):
-    # TODO: method for list of even states
-    def __init__(self):
-        self.orbital_names = ["up", "dn"]
-        self.nr_orbitals = 2
-        self.baths = []
-
-    def state_string(self, state):
-        """
-        Represent a state as a string of the filled orbital names
-        """
-        if state >= 3:
-            raise ValueError(f"State {state} does not exist")
-
-        s = []
-
-        for k in range(self.nr_orbitals):
-            if (state % 2) == 1:
-                s.append(self.orbital_names[k])
-            state = state // 2
-
-        return ",".join(s)
-
-    def basis(self):
-        all_states = np.arange(2**self.nr_orbitals)[:3]
-        out = [self.state_string(s) for s in all_states]
-        return out
-
-    def is_orb_in_state(self, orbital, state):
-        """
-        Return a mask over the list of states indicating which ones have an orbital occupated.
-        """
-        if state >= 3:
-            raise ValueError(f"State {state} does not exist")
-
-        return (state // 2**orbital) % 2 == 1
-
-    def generate_hybridizations(self):
-        hybs = []
-
-        for orbital, delta_grea, delta_less in self.baths:
-            if orbital == 0:
-                hybs.append((1, 0, delta_grea, delta_less))
-                hybs.append((0, 1, np.conj(delta_less), np.conj(delta_grea)))
-            elif orbital == 1:
-                hybs.append((2, 0, delta_grea, delta_less))
-                hybs.append((0, 2, np.conj(delta_less), np.conj(delta_grea)))
-            else:
-                raise RuntimeError
-
-        return hybs
-
-    def get_G_grea(self, orbital, solver):
-        """Returns G^>(t) on time grid used in solver"""
-        if orbital >= self.nr_orbitals:
-            raise ValueError
-
-        mesh, G_grea = product_functions(
-            solver.time_meshes[0],
-            solver.R_less[::-1, 0],
-            solver.time_meshes[1],
-            solver.R_grea[:, 1],
-        )
-
-        G_grea *= 1j / solver.Z_loc
-        return mesh, G_grea
-
-    def get_G_less(self, orbital, solver):
-        """Returns G^<(t) on time grid used in solver"""
-        if orbital >= self.nr_orbitals:
-            raise ValueError
-
-        mesh, G_less = product_functions(
-            solver.time_meshes[1],
-            solver.R_less[:, 1],
-            solver.time_meshes[0],
-            solver.R_grea[::-1, 0],
-        )
-
-        G_less *= -1j / solver.Z_loc
-        return mesh, G_less
+def AIM_infinite_U():
+    return FermionicFockSpace(["up", "dn"], [3])
 
 
 def report_allclose(a, b, *args, **kwargs):

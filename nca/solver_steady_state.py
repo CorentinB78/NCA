@@ -79,19 +79,13 @@ class SolverSteadyState:
         """R^>(t) ---> S^>(t)"""
         self.S_grea[:, states] = 0.0
 
-        for states_a, states_b, delta, _ in self.hybridizations:
-            states_a, states_b = np.atleast_1d(states_a, states_b)
-            for (a, b) in zip(states_a, states_b):
-                if states[a]:
-                    if self.is_even_state[a] == self.is_even_state[b]:
-                        raise RuntimeError(
-                            "An hybridization process couples two states of same parity."
-                        )
-                    delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
-                    R_grea_b = interp(
-                        self.time_meshes[a], self.time_meshes[b], self.R_grea[:, b]
-                    )
-                    self.S_grea[:, a] += 1j * delta[:] * R_grea_b
+        for a in np.arange(self.D)[states]:
+            for b, delta, _ in self.hybridizations[a]:
+                delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
+                R_grea_b = interp(
+                    self.time_meshes[a], self.time_meshes[b], self.R_grea[:, b]
+                )
+                self.S_grea[:, a] += 1j * delta[:] * R_grea_b
 
     def back_to_freqs_grea(self, states):
         """S^>(t) ---> \tilde S^>(w)"""
@@ -125,11 +119,9 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for states_a, states_b, delta, _ in self.hybridizations:
-            states_a, states_b = np.atleast_1d(states_a, states_b)
-            for (a, b) in zip(states_a, states_b):
-                if even[a]:
-                    delta_magn += np.abs(delta[idx0]) ** 2
+        for a in even:
+            for b, delta, _ in self.hybridizations[a]:
+                delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
         self.R_grea_w[:, even] = np.imag(
@@ -236,19 +228,13 @@ class SolverSteadyState:
         """R^<(t) ---> S^<(t)"""
         self.S_less[:, states] = 0.0
 
-        for states_a, states_b, _, delta in self.hybridizations:
-            states_a, states_b = np.atleast_1d(states_a, states_b)
-            for (a, b) in zip(states_a, states_b):
-                if states[a]:
-                    if self.is_even_state[a] == self.is_even_state[b]:
-                        raise RuntimeError(
-                            "An hybridization process couples two states of same parity."
-                        )
-                    delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
-                    R_less_b = interp(
-                        self.time_meshes[a], self.time_meshes[b], self.R_less[:, b]
-                    )
-                    self.S_less[:, a] += -1j * delta[:] * R_less_b
+        for a in np.arange(self.D)[states]:
+            for b, _, delta in self.hybridizations[a]:
+                delta = interp(self.time_meshes[a], self.time_mesh_hybs, delta)
+                R_less_b = interp(
+                    self.time_meshes[a], self.time_meshes[b], self.R_less[:, b]
+                )
+                self.S_less[:, a] += -1j * delta[:] * R_less_b
 
     def back_to_freqs_less(self, states):
         """S^<(t) ---> S^<(w)"""
@@ -288,11 +274,9 @@ class SolverSteadyState:
         delta_magn = 0.0
         idx0 = self.N // 2
 
-        for states_a, states_b, _, delta in self.hybridizations:
-            states_a, states_b = np.atleast_1d(states_a, states_b)
-            for (a, b) in zip(states_a, states_b):
-                if even[a]:
-                    delta_magn += np.abs(delta[idx0]) ** 2
+        for a in even:
+            for b, _, delta in self.hybridizations[a]:
+                delta_magn += np.abs(delta[idx0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
         for i in range(self.D):
