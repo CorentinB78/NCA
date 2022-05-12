@@ -164,13 +164,22 @@ class SolverSteadyState:
     ### getters ###
 
     def get_R_grea_w(self):
+        """
+        Returns the *imaginary part* of R^>(w) in a float array, which is a pure imaginary quantity.
+        """
         return self.core.R_grea_w.copy()
 
     def get_R_grea(self):
+        """
+        Returns R^>(t) in a complex array
+        """
         _, R_grea = inv_fourier_transform(self.freq_mesh, self.core.R_grea_w, axis=0)
         return R_grea * 1j
 
     def get_R_reta_w(self):
+        """
+        Returns R^R(w) in a complex array
+        """
         R_grea = self.get_R_grea()
         idx0 = self.N // 2
 
@@ -180,11 +189,37 @@ class SolverSteadyState:
         return R_reta_w
 
     def get_R_less_w(self):
+        """
+        Returns the *imaginary part* of R^<(w) in a float array, which is a pure imaginary quantity.
+        """
         return self.core.R_less_w.copy()
 
     def get_R_less(self):
+        """
+        Returns R^<(t) in a complex array
+        """
         _, R_less = inv_fourier_transform(self.freq_mesh, self.core.R_less_w, axis=0)
         return R_less * 1j
+
+    def get_S_grea_w(self):
+        """
+        Returns the *imaginary part* of S^>(w) in a float array, which is a pure imaginary quantity.
+        """
+        return 2 * np.imag(self.get_S_reta_w())
+
+    def get_S_reta_w(self):
+        """
+        Returns S^R(w) in a complex array
+        """
+        out = self.core.inv_R0_reta_w - 1.0 / self.get_R_reta_w()
+        return out
+
+    def get_S_less_w(self):
+        """
+        Returns the *imaginary part* of S^<(w) in a float array, which is a pure imaginary quantity.
+        """
+        out = self.core.R_less_w / self.core.R_reta_sqr_w
+        return np.real(out)
 
     def get_G_grea(self, orbital):
         """Returns G^>(t) on time grid used in solver"""

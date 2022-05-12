@@ -172,6 +172,18 @@ class TestParams1(unittest.TestCase):
             atol=1e-2,
         )
 
+    def test_get_R_reta_w(self):
+        R_reta_w = self.S.get_R_reta_w()
+        R_grea_w = self.S.get_R_grea_w()
+
+        testing.assert_allclose(2 * np.imag(R_reta_w), R_grea_w, atol=1e-8)
+
+    def test_get_S_reta_w(self):
+        S_reta_w = self.S.get_S_reta_w()
+        S_grea_w = self.S.get_S_grea_w()
+
+        testing.assert_allclose(2 * np.imag(S_reta_w), S_grea_w, atol=1e-8)
+
 
 class TestSelfEnergy(unittest.TestCase):
     def test_self_energy(self):
