@@ -98,7 +98,7 @@ class SolverSteadyState:
         self.core.hybridizations = self._hybs
 
         def err_func(R):
-            e = np.sum(np.abs(R)) / (self.freq_mesh.delta * self.D)
+            e = np.sum(np.abs(R)) * self.freq_mesh.delta / self.D
             return e
 
         def callback_func(R, n_iter):
@@ -133,7 +133,7 @@ class SolverSteadyState:
         self.core.hybridizations = self._hybs
 
         def err_func(R):
-            e = np.sum(np.abs(R)) / (self.freq_mesh.delta * self.D)
+            e = np.sum(np.abs(R)) * self.freq_mesh.delta / self.D
             return e
 
         def callback_func(R, n_iter):
