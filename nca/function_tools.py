@@ -149,7 +149,7 @@ def checked_interp(mesh_a, mesh_b, func_b, kind="cubic", tol=1e-3):
     vals2 = interp(mesh_a_half, mesh_b, func_b, kind=kind, allow=True)
     check = interp(mesh_a, mesh_a_half, vals2, kind="linear", allow=True)
 
-    err = np.trapz(np.abs(check - vals1), dx=mesh_a.delta)
+    err = np.sum(np.abs(check - vals1)) / mesh_a.delta
 
     print_warning_large_error(
         f"Low number of samples for this interpolation. err={err}",

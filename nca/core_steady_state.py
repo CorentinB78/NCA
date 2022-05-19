@@ -1,6 +1,7 @@
 import numpy as np
 from .function_tools import fourier_transform, inv_fourier_transform
 import toolbox as tb
+from scipy import integrate
 
 
 class CoreSolverSteadyState:
@@ -161,7 +162,7 @@ class CoreSolverSteadyState:
     def normalize_less_w(self):
         Z = 0.0
         for i in range(self.D):
-            Z += -np.trapz(dx=self.freq_mesh.delta, y=self.R_less_w[:, i])
+            Z += -integrate.simpson(dx=self.freq_mesh.delta, y=self.R_less_w[:, i])
         Z /= 2 * np.pi
         if Z == 0.0:
             raise ZeroDivisionError
@@ -198,7 +199,7 @@ class CoreSolverSteadyState:
 
     def check_quality_grid(self, tol_delta):
         _, _, w, der2 = tb.derivate_twice(self.freqs, self.R_grea_w, axis=0)
-        der2 = np.trapz(x=w, y=np.abs(der2), axis=0)
+        der2 = integrate.simpson(x=w, y=np.abs(der2), axis=0)
         err_delta = self.freq_mesh.delta**2 * der2 / 12.0
 
         print(f"Quality grid: delta error ={err_delta}")
@@ -210,5 +211,5 @@ class CoreSolverSteadyState:
     def get_normalization_error(self):
         norm = np.empty(self.D, dtype=float)
         for i in range(self.D):
-            norm[i] = np.trapz(self.R_grea_w[:, i], dx=self.freq_mesh.delta)
+            norm[i] = integrate.simpson(self.R_grea_w[:, i], dx=self.freq_mesh.delta)
         return np.abs(norm + 2.0 * np.pi)
