@@ -113,7 +113,28 @@ class CoreSolverSteadyState:
 
         self.normalize_less_w()
 
-    ### Self consistency relations
+    ### Iteration functions
+
+    def _self_energy_grea(self, parity_flag, R_grea):
+        """
+        Compute S^> from R^> in time domain.
+
+        Arguments:
+            parity_flag -- boolean, True for even states, False for odd states
+            R_grea -- 2D array (times, states) for R^> for the complementary states
+
+        Returns:
+            2D array (times, states)
+        """
+        states = self.even_states if parity_flag else self.odd_states
+
+        S_grea = np.zeros((self.N, len(states)), dtype=complex)
+
+        for k, a in enumerate(states):
+            for b, delta, _ in self.hybridizations[a]:
+                S_grea[:, k] += 1j * delta[:] * R_grea[:, self.state_parity_table[b]]
+
+        return S_grea
 
     def iteration_grea(self, parity_flag):
         """
@@ -135,12 +156,7 @@ class CoreSolverSteadyState:
             _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
         R_grea *= 1j
 
-        S_grea = np.zeros((self.N, self.D_half), dtype=complex)
-
-        for k, a in enumerate(group_2):
-            for b, delta, _ in self.hybridizations[a]:
-                S_grea[:, k] += 1j * delta[:] * R_grea[:, self.state_parity_table[b]]
-
+        S_grea = self._self_energy_grea(parity_flag, R_grea)
         del R_grea
 
         idx0 = self.N // 2
@@ -151,6 +167,27 @@ class CoreSolverSteadyState:
         for k, s in enumerate(group_2):
             r = self.inv_R0_reta_w[:, s] - S_grea[:, k]
             self.R_grea_w[:, s] = np.imag(2.0 / r)
+
+    def _self_energy_less(self, parity_flag, R_less):
+        """
+        Compute S^< from R^< in time domain.
+
+        Arguments:
+            parity_flag -- boolean, True for even states, False for odd states
+            R_grea -- 2D array (times, states) for R^< for the complementary states
+
+        Returns:
+            2D array (times, states)
+        """
+        states = self.even_states if parity_flag else self.odd_states
+
+        S_less = np.zeros((self.N, len(states)), dtype=complex)
+
+        for k, a in enumerate(states):
+            for b, _, delta in self.hybridizations[a]:
+                S_less[:, k] += -1j * delta[:] * R_less[:, self.state_parity_table[b]]
+
+        return S_less
 
     def iteration_less(self, parity_flag):
         """
@@ -174,12 +211,7 @@ class CoreSolverSteadyState:
             )
         R_less *= 1.0j
 
-        S_less = np.zeros((self.N, self.D_half), dtype=complex)
-
-        for k, a in enumerate(group_2):
-            for b, _, delta in self.hybridizations[a]:
-                S_less[:, k] += -1j * delta[:] * R_less[:, self.state_parity_table[b]]
-
+        S_less = self._self_energy_less(parity_flag, R_less)
         del R_less
 
         _, S_less = fourier_transform(self.time_mesh, S_less, axis=0)
