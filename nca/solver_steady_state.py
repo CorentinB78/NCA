@@ -7,6 +7,21 @@ from .fixed_point_loop_solver import fixed_point_loop
 
 
 def greater_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
+    """
+    Compute a local greater Green function (GF) from R^< and R^>.
+
+    Arguments:
+        orbital -- integer indicating which GF to compute
+        state_space -- a StateSpace instance
+        time_mesh -- a Mesh instance (not used)
+        R_grea -- 2D array of shape (times, states)
+        R_less -- 2D array of shape (times, states)
+        Z -- partition function for normalization
+
+    Returns:
+        time_mesh -- Mesh instance
+        G_grea -- 1D array
+    """
     R_grea = np.asarray(R_grea, dtype=complex)
     R_less = np.asarray(R_less, dtype=complex)
 
@@ -22,6 +37,21 @@ def greater_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
 
 
 def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
+    """
+    Compute a local lesser Green function (GF) from R^< and R^>.
+
+    Arguments:
+        orbital -- integer indicating which GF to compute
+        state_space -- a StateSpace instance
+        time_mesh -- a Mesh instance (not used)
+        R_grea -- 2D array of shape (times, states)
+        R_less -- 2D array of shape (times, states)
+        Z -- partition function for normalization
+
+    Returns:
+        time_mesh -- Mesh instance
+        G_grea -- 1D array
+    """
     R_grea = np.asarray(R_grea, dtype=complex)
     R_less = np.asarray(R_less, dtype=complex)
 
@@ -38,6 +68,7 @@ def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
 
 class SolverSteadyState:
     # TODO: method for list of even states
+    # TODO: implement non-diagonal hybridization functions & local Hamiltonian
     def __init__(
         self,
         nr_orbitals,
@@ -47,15 +78,18 @@ class SolverSteadyState:
         forbidden_states=None,
     ):
         """
-        Real time Non-Crossing Approximation (NCA) solver for steady states.
+        Non-Crossing Approximation (NCA) solver for steady states using real frequencies.
 
-        For now only diagonal hybridizations and local hamiltonians are supported. TODO.
+        For now only diagonal hybridizations and local hamiltonians are supported.
 
-        * local_evol: list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
-        * time_mesh: an instance of `Mesh`.
-        * hybridizations: list of hybridization processes. Each process is a tuple (a, b, delta_grea, delta_less) where a, b are states (identified by an int within range(D)) and delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from a to b then back to a. Conjugate processes are not added automatically.
-        Optionnaly, several processes can be regrouped if they share the same hybridization functions, then a and b should be 1D arrays.
-        * list_even_states: TODO
+        Arguments:
+            nr_orbitals -- int, number of orbitals in local system
+            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
+            time_mesh -- Mesh instance for time coordinates
+
+        Keyword Arguments:
+            orbital_names -- list of strings to name orbitals (default: {None})
+            forbidden_states -- list of states (int) which have infinite energy, and are thus forbidden (default: {None})
         """
         self.state_space = StateSpace(nr_orbitals, orbital_names, forbidden_states)
 
@@ -77,7 +111,19 @@ class SolverSteadyState:
         self._lock_hybs = False
 
     def add_bath(self, orbital, delta_grea, delta_less):
-        """Only baths coupled to a single orbital for now"""
+        """
+        Connect a bath to the local system and describe the corresponding hybridization functions.
+
+        Only bath connected to a single site.
+
+        Arguments:
+            orbital -- int, which orbital to connect the bath to
+            delta_grea -- 1D array, greater hybridization function on time mesh of the solver
+            delta_less -- 1D array, lesser hybridization function on time mesh of the solver
+
+        Raises:
+            RuntimeError: Hybridization functions cannot be modified after starting calculation
+        """
         if self._lock_hybs:
             raise RuntimeError
 
@@ -88,12 +134,20 @@ class SolverSteadyState:
             self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
 
     def greater_loop(
-        self,
-        tol=1e-8,
-        max_iter=100,
-        plot=False,
-        verbose=False,
+        self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0
     ):
+        """
+        Perform self-consistency loop for R^> and S^>.
+
+        Should be done before the lesser loop.
+
+        Keyword Arguments:
+            tol -- tolerance to reach for the loop to stop (default: {1e-8})
+            max_iter -- maximum number of iterations (default: {100})
+            plot -- if True, make plot at each iteration (default: {False})
+            verbose -- if True, print information at each iteration (default: {False})
+            alpha -- level of mixing (default: {1.0} no mixing)
+        """
         self._lock_hybs = True
         self.core.hybridizations = self._hybs
 
@@ -118,6 +172,7 @@ class SolverSteadyState:
             verbose=verbose,
             callback_func=callback_func if plot else None,
             err_func=err_func,
+            alpha=alpha,
         )
 
         if plot:
@@ -129,6 +184,18 @@ class SolverSteadyState:
         # self.core.S_grea_w = 2.0 * self.core.S_reta_w.imag
 
     def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
+        """
+        Perform self-consistency loop for R^< and S^<.
+
+        Greater loop should be done before.
+
+        Keyword Arguments:
+            tol -- tolerance to reach for the loop to stop (default: {1e-8})
+            max_iter -- maximum number of iterations (default: {100})
+            plot -- if True, make plot at each iteration (default: {False})
+            verbose -- if True, print information at each iteration (default: {False})
+            alpha -- level of mixing (default: {1.0} no mixing)
+        """
         self._lock_hybs = True
         self.core.hybridizations = self._hybs
 
@@ -161,11 +228,15 @@ class SolverSteadyState:
             plt.legend()
             plt.xlim(-20, 15)
 
-    ### getters ###
+    ### R and S getters ###
 
     def get_R_grea_w(self):
         """
-        Returns the *imaginary part* of R^>(w) in a float array, which is a pure imaginary quantity.
+        Return R^> in frequency domain.
+        As it is a pure imaginary quantity, only the imaginary part is returned.
+
+        Returns:
+            2D array with shape (frequencies, states)
         """
         return self.core.R_grea_w.copy()
 
@@ -178,7 +249,10 @@ class SolverSteadyState:
 
     def get_R_reta_w(self):
         """
-        Returns R^R(w) in a complex array
+        Return R^R in frequency domain.
+
+        Returns:
+            2D array with shape (frequencies, states)
         """
         R_grea = self.get_R_grea()
         idx0 = self.N // 2
@@ -190,39 +264,68 @@ class SolverSteadyState:
 
     def get_R_less_w(self):
         """
-        Returns the *imaginary part* of R^<(w) in a float array, which is a pure imaginary quantity.
+        Return R^< in frequency domain.
+        As it is a pure imaginary quantity, only the imaginary part is returned.
+
+        Returns:
+            2D array with shape (frequencies, states)
         """
         return self.core.R_less_w.copy()
 
     def get_R_less(self):
         """
-        Returns R^<(t) in a complex array
+        Returns R^< in time domain
+
+        Returns:
+            2D array with shape (times, states)
         """
         _, R_less = inv_fourier_transform(self.freq_mesh, self.core.R_less_w, axis=0)
         return R_less * 1j
 
     def get_S_grea_w(self):
         """
-        Returns the *imaginary part* of S^>(w) in a float array, which is a pure imaginary quantity.
+        Return S^> in frequency domain.
+        As it is a pure imaginary quantity, only the imaginary part is returned.
+
+        Returns:
+            2D array of floats with shape (frequencies, states)
         """
         return 2 * np.imag(self.get_S_reta_w())
 
     def get_S_reta_w(self):
         """
-        Returns S^R(w) in a complex array
+        Return S^R in frequency domain.
+
+        Returns:
+            2D array with shape (frequencies, states)
         """
         out = self.core.inv_R0_reta_w - 1.0 / self.get_R_reta_w()
         return out
 
     def get_S_less_w(self):
         """
-        Returns the *imaginary part* of S^<(w) in a float array, which is a pure imaginary quantity.
+        Return S^< in frequency domain.
+        As it is a pure imaginary quantity, only the imaginary part is returned.
+
+        Returns:
+            2D array of floats with shape (frequencies, states)
         """
         out = self.core.R_less_w / self.core.R_reta_sqr_w
         return np.real(out)
 
+    ### Green functions getters ###
+
     def get_G_grea(self, orbital):
-        """Returns G^>(t) on time grid used in solver"""
+        """
+        Compute greater Green functions in time domain
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for time coordinates
+            gf -- 1D array
+        """
         return greater_gf(
             orbital,
             self.state_space,
@@ -233,7 +336,16 @@ class SolverSteadyState:
         )
 
     def get_G_less(self, orbital):
-        """Returns G^<(t) on time grid used in solver"""
+        """
+        Compute lesser Green functions in time domain
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for time coordinates
+            gf -- 1D array
+        """
         return lesser_gf(
             orbital,
             self.state_space,
@@ -244,18 +356,45 @@ class SolverSteadyState:
         )
 
     def get_G_grea_w(self, orbital):
+        """
+        Compute greater Green functions in frequency domain
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for frequency coordinates
+            gf -- 1D array
+        """
         m, g = self.get_G_grea(orbital)
         m, g = fourier_transform(m, g)
         return m, g
 
     def get_G_less_w(self, orbital):
+        """
+        Compute lesser Green functions in frequency domain
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for frequency coordinates
+            gf -- 1D array
+        """
         m, g = self.get_G_less(orbital)
         m, g = fourier_transform(m, g)
         return m, g
 
     def get_G_reta_w(self, orbital):
         """
-        Returns the retarded Green function in frequencies
+        Compute retarded Green functions in frequency domain
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for frequency coordinates
+            gf -- 1D array
         """
         m, G_less = self.get_G_less(orbital)
         m2, G_grea = self.get_G_grea(orbital)
@@ -270,7 +409,16 @@ class SolverSteadyState:
         return m, G_reta_w
 
     def get_DOS(self, orbital):
-        """Returns density of states"""
+        """
+        Compute the density of states in frequency domain from the retarded Green function
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            mesh -- a Mesh instance for frequency coordinates
+            gf -- 1D array
+        """
         m, G_less = self.get_G_less(orbital)
         m2, G_grea = self.get_G_grea(orbital)
 
@@ -284,7 +432,20 @@ class SolverSteadyState:
         return self.core.get_normalization_error()
 
 
+######## Shortcuts for often used solvers ########
+
+
 def AIM_infinite_U(local_evol, time_mesh):
+    """
+    Return solver for a single-site Anderson impurity model with infinite Hubbard interaction
+
+    Arguments:
+        local_evol -- list of local evolution (length 4)
+        time_mesh -- Mesh instance for time coordinates
+
+    Returns:
+        a SolverSteadyState instance
+    """
     return SolverSteadyState(
         2, local_evol, time_mesh, orbital_names=["up", "dn"], forbidden_states=[3]
     )

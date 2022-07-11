@@ -12,7 +12,7 @@ def is_orb_in_state(orbital, state):
 
 def states_containing(orbital, nr_orbitals):
     """
-    Return two lists, the first containing the states for which `orbital` is occupated, the second containing the other states.
+    Return two lists, the first containing the states for which `orbital` is occupied, the second containing the other states.
 
     States of same index only differs from the occupation of `orbital`.
     # TODO: test
@@ -24,6 +24,16 @@ def states_containing(orbital, nr_orbitals):
 
 class StateSpace:
     def __init__(self, nr_orbitals, orbital_names=None, forbidden_states=None):
+        """
+        Representation of the Fock space of the local system.
+
+        Arguments:
+            nr_orbitals -- int, number of orbitals in local system
+
+        Keyword Arguments:
+            orbital_names -- list of strings to name orbitals (default: {None})
+            forbidden_states -- list of states (int) which have infinite energy, and are thus forbidden (default: {None})
+        """
         if orbital_names is not None:
             assert len(orbital_names) == nr_orbitals
             self.orbital_names = orbital_names
@@ -48,6 +58,15 @@ class StateSpace:
         self._all_states = np.delete(all_states, idx)
 
     def __contains__(self, state):
+        """
+        Indicate if `state` is in the Fock space and is not a forbidden state.
+
+        Arguments:
+            state -- int
+
+        Returns:
+            bool
+        """
         if state < 0 or state >= 2**self.nr_orbitals:
             return False
         if state in self.forbidden_states:
@@ -69,7 +88,12 @@ class StateSpace:
 
     def get_states_by_parity(self):
         """
-        Returns even, odd
+        Returns two lists, one with the even states, the other with the odd states.
+
+        Parity of a state is defined as the parity of its occupation.
+
+        Returns:
+            even, odd
         """
         even = []
         odd = []
@@ -89,6 +113,22 @@ class StateSpace:
         return self._all_states
 
     def get_state_pairs_from_orbital(self, orbital):
+        """
+        Given an orbital, return pairs of states which differ only by the occupation of this orbital.
+
+        States which would be paired to a forbidden state are ignored.
+        The pairs are returned as two lists, the first (second) containing the states in which the orbital is occupied (unoccupied). The pairs are the elements of same index.
+
+        Arguments:
+            orbital -- int
+
+        Raises:
+            ValueError: orbital does not exist
+
+        Returns:
+            a -- list of states with occupied `orbital`
+            b -- list of states with unoccupied `orbital`
+        """
         if orbital >= self.nr_orbitals:
             raise ValueError
         a, b = states_containing(orbital, self.nr_orbitals)

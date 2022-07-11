@@ -5,15 +5,21 @@ from scipy import integrate
 
 
 class CoreSolverSteadyState:
+    # TODO: implement non-diagonal hybridization functions & local Hamiltonian
     def __init__(self, local_evol, time_mesh, list_even_states, list_odd_states):
         """
-        Real time Non-Crossing Approximation (NCA) solver for steady states.
+        Non-Crossing Approximation (NCA) solver for steady states in real frequencies --- core functions.
 
-        For now only diagonal hybridizations and local hamiltonians are supported. TODO.
+        For now only diagonal hybridizations and local hamiltonians are supported.
 
-        * local_evol: list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
-        * time_mesh: an instance of `Mesh`.
-        * list_even_states: TODO
+        Arguments:
+            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
+            time_mesh -- an instance of `Mesh` for time coordinates
+            list_even_states -- list of int representing the even states
+            list_odd_states -- list of int representing the odd states
+
+        Attributes:
+            hybridizations -- dictionnary describing hybridization processes. Keys are the initial states. Values are lists of all processes starting at the same state. Each process is a tuple (intermediate_state, delta_grea, delta_less) where delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from the initial state to the intermediate state then back to the starting state. Conjugate processes are not added automatically.
         """
         # TODO: sanity checks
         assert len(list_even_states) + len(list_odd_states) == len(local_evol)
@@ -64,6 +70,11 @@ class CoreSolverSteadyState:
     ### Initial guesses ###
 
     def initialize_grea(self):
+        """
+        Make a first guess for R^> based on magnitude of hybridizations.
+
+        Populates R_grea_w
+        """
         even = self.is_even_state
 
         delta_magn = 0.0
@@ -79,6 +90,11 @@ class CoreSolverSteadyState:
         )
 
     def initialize_less(self):
+        """
+        Make a first guess for R^< based on magnitude of hybridizations.
+
+        Populates R_less_w
+        """
         even = self.is_even_state
 
         delta_magn = 0.0
@@ -99,9 +115,15 @@ class CoreSolverSteadyState:
 
     ### Self consistency relations
 
-    def self_consistency_grea(self, parity_flag):
+    def iteration_grea(self, parity_flag):
         """
-        parity_flag: True for odd->even, False for even->odd
+        Perform one greater iteration.
+
+        If parity flag is True, use R^> in frequency domain of odd states to update the same quantity for even states, by going to the time domain, updating S^> and applying the self-consistency.
+        If the parity flag is False, the roles of odd and even states are inverted.
+
+        Arguments:
+            parity_flag -- boolean
         """
         group_1, group_2 = self.even_states, self.odd_states
         if parity_flag:
@@ -130,9 +152,15 @@ class CoreSolverSteadyState:
             r = self.inv_R0_reta_w[:, s] - S_grea[:, k]
             self.R_grea_w[:, s] = np.imag(2.0 / r)
 
-    def self_consistency_less(self, parity_flag):
+    def iteration_less(self, parity_flag):
         """
-        parity_flag: True for odd->even, False for even->odd
+        Perform one lesser iteration.
+
+        If parity flag is True, use R^< in frequency domain of odd states to update the same quantity for even states, by going to the time domain, updating S^< and applying the self-consistency.
+        If the parity flag is False, the roles of odd and even states are inverted.
+
+        Arguments:
+            parity_flag -- boolean
         """
         group_1, group_2 = self.even_states, self.odd_states
         if parity_flag:
@@ -160,6 +188,12 @@ class CoreSolverSteadyState:
             self.R_less_w[:, s] = self.R_reta_sqr_w[:, s] * S_less[:, k].imag
 
     def normalize_less_w(self):
+        """
+        Normalize R^< according to the partition function
+
+        Raises:
+            ZeroDivisionError: norm is zero
+        """
         Z = 0.0
         for i in range(self.D):
             Z += -integrate.simpson(dx=self.freq_mesh.delta, y=self.R_less_w[:, i])
@@ -171,10 +205,19 @@ class CoreSolverSteadyState:
     ### Loops ###
 
     def fixed_pt_function_grea(self, R_grea_w):
+        """
+        Fixed point function for greater loop
+
+        Arguments:
+            R_grea_w -- 2D array
+
+        Returns:
+            New R^>
+        """
         self.R_grea_w[...] = R_grea_w
 
-        self.self_consistency_grea(False)
-        self.self_consistency_grea(True)
+        self.iteration_grea(False)
+        self.iteration_grea(True)
 
         self.normalization_error.append(self.get_normalization_error())
 
@@ -183,11 +226,20 @@ class CoreSolverSteadyState:
         return self.R_grea_w.copy()
 
     def fixed_pt_function_less(self, R_less_w):
+        """
+        Fixed point function for lesser loop
+
+        Arguments:
+            R_less_w -- 2D array
+
+        Returns:
+            New R^<
+        """
 
         self.R_less_w[...] = R_less_w.reshape((-1, self.D))
 
-        self.self_consistency_less(False)
-        self.self_consistency_less(True)
+        self.iteration_less(False)
+        self.iteration_less(True)
 
         self.normalize_less_w()
 
@@ -209,6 +261,12 @@ class CoreSolverSteadyState:
         print(f"Max time advised: {np.pi / dw}")
 
     def get_normalization_error(self):
+        """
+        Normalization error for R^>
+
+        Returns:
+            error
+        """
         norm = np.empty(self.D, dtype=float)
         for i in range(self.D):
             norm[i] = integrate.simpson(self.R_grea_w[:, i], dx=self.freq_mesh.delta)
