@@ -242,7 +242,10 @@ class SolverSteadyState:
 
     def get_R_grea(self):
         """
-        Returns R^>(t) in a complex array
+        Returns R^>(t) in time domain
+
+        Returns:
+            2D array with shape (times, states)
         """
         _, R_grea = inv_fourier_transform(self.freq_mesh, self.core.R_grea_w, axis=0)
         return R_grea * 1j
@@ -299,6 +302,7 @@ class SolverSteadyState:
         Returns:
             2D array with shape (frequencies, states)
         """
+        # TODO: use more stable method, e.g. going through real time and NCA self-energy formula
         out = self.core.inv_R0_reta_w - 1.0 / self.get_R_reta_w()
         return out
 
