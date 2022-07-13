@@ -107,5 +107,25 @@ class TestHybridization(unittest.TestCase):
         testing.assert_allclose(delta_less_w, delta_less_w_ref, atol=1e-3)
 
 
+class TestImagTimesGF(unittest.TestCase):
+    def test_gf_tau_from_dos(self):
+        beta = 2.0
+        sigma = 1.0
+        w = np.linspace(-10, 9.5, 50)
+        norm = 1.0 / (1.0 + np.exp((sigma * beta) ** 2 / 4.0))
+        dos = (
+            norm
+            / (sigma * np.sqrt(np.pi))
+            * (np.exp(-((w / sigma) ** 2)) + np.exp(-((w / sigma) ** 2) - beta * w))
+        )
+
+        taus = np.array([0.0, 0.7, 1.3, 2.0])
+        gf_tau_ref = -norm * np.exp((sigma * taus) ** 2 / 4.0)
+
+        gf_tau = gf_tau_from_dos(taus, beta, w, dos)
+
+        testing.assert_allclose(gf_tau, gf_tau_ref)
+
+
 if __name__ == "__main__":
     unittest.main()

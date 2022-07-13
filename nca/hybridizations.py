@@ -20,7 +20,18 @@ def fermi(omegas, mu, beta):
 
 
 def gf_tau_from_dos(taus, beta, omegas, dos):
-    # TODO: test and fix issues of overflow for large omegas or large beta (see toolbox)
+    """
+    Compute imaginary time Green function from a real frequency density of states.
+
+    Arguments:
+        taus -- 1D array, imaginary times
+        beta -- float, inverse temperature
+        omegas -- 1D array, real frequencies (increasing)
+        dos -- 1D array, density of states at `omegas`
+
+    Returns:
+        1D array, values of imaginary time GF at `taus`
+    """
     delta = omegas[1] - omegas[0]
 
     f = np.empty((len(taus), len(dos)), dtype=float)
@@ -28,10 +39,20 @@ def gf_tau_from_dos(taus, beta, omegas, dos):
     for k, tau in enumerate(taus):
         if tau < 0:
             f[k, :] = 0.0
-        elif tau < beta / 2.0:
-            f[k, :] = dos * fermi(-omegas, 0.0, beta) * np.exp(-omegas * tau)
         elif tau <= beta:
-            f[k, :] = dos * fermi(omegas, 0.0, beta) * np.exp(omegas * (beta - tau))
+
+            mask = omegas >= 0.0
+            f[k, :][mask] = (
+                dos[mask]
+                * fermi(-omegas[mask], 0.0, beta)
+                * np.exp(-omegas[mask] * tau)
+            )
+            f[k, :][~mask] = (
+                dos[~mask]
+                * fermi(omegas[~mask], 0.0, beta)
+                * np.exp(omegas[~mask] * (beta - tau))
+            )
+
         else:
             f[k, :] = 0.0
 
