@@ -2,7 +2,6 @@ import unittest
 from matplotlib import pyplot as plt
 import numpy as np
 from numpy import testing
-import toolbox as tb
 
 from nca.hybridizations import *
 
@@ -32,13 +31,10 @@ class TestHybridization(unittest.TestCase):
         A_ref = np.vectorize(A_ref)
 
         delta_grea_w_ref = (
-            -2j
-            * np.pi
-            * A_ref(w_mesh.values())
-            * tb.one_minus_fermi(w_mesh.values(), mu, beta)
+            -2j * np.pi * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, -beta)
         )
         delta_less_w_ref = (
-            2j * np.pi * A_ref(w_mesh.values()) * tb.fermi(w_mesh.values(), mu, beta)
+            2j * np.pi * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, beta)
         )
 
         testing.assert_allclose(delta_grea_w, delta_grea_w_ref, atol=1e-1)
@@ -66,13 +62,10 @@ class TestHybridization(unittest.TestCase):
         A_ref = np.vectorize(A_ref)
 
         delta_grea_w_ref = (
-            -2j
-            * np.pi
-            * A_ref(w_mesh.values())
-            * tb.one_minus_fermi(w_mesh.values(), mu, beta)
+            -2j * np.pi * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, -beta)
         )
         delta_less_w_ref = (
-            2j * np.pi * A_ref(w_mesh.values()) * tb.fermi(w_mesh.values(), mu, beta)
+            2j * np.pi * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, beta)
         )
 
         testing.assert_allclose(delta_grea_w, delta_grea_w_ref, atol=1e-3)
@@ -104,10 +97,10 @@ class TestHybridization(unittest.TestCase):
         A_ref = np.vectorize(A_ref)
 
         delta_grea_w_ref = (
-            -2j * A_ref(w_mesh.values()) * tb.one_minus_fermi(w_mesh.values(), mu, beta)
+            -2j * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, -beta)
         )
         delta_less_w_ref = (
-            2j * A_ref(w_mesh.values()) * tb.fermi(w_mesh.values(), mu, beta)
+            2j * A_ref(w_mesh.values()) * fermi(w_mesh.values(), mu, beta)
         )
 
         testing.assert_allclose(delta_grea_w, delta_grea_w_ref, atol=1e-3)

@@ -1,10 +1,42 @@
-import toolbox as tb
 import numpy as np
 from .function_tools import *
 from .utilities import print_warning_large_error
-from matplotlib import pyplot as plt
 
 # TODO: swap outputs to respect default order: grea, less
+
+
+def fermi(omegas, mu, beta):
+    """
+    Fermi function
+
+    1 / (1 + e^{-beta (omegas - mu)})
+
+    Entirely vectorized, supports infinite beta.
+    """
+    x = beta * (omegas - mu)
+    ### for case beta=inf and omega=mu:
+    x = np.nan_to_num(x, copy=False, nan=0.0, posinf=+np.inf, neginf=-np.inf)
+    return 0.5 * (1.0 + np.tanh(-x * 0.5))
+
+
+def gf_tau_from_dos(taus, beta, omegas, dos):
+    # TODO: test and fix issues of overflow for large omegas or large beta (see toolbox)
+    delta = omegas[1] - omegas[0]
+
+    f = np.empty((len(taus), len(dos)), dtype=float)
+
+    for k, tau in enumerate(taus):
+        if tau < 0:
+            f[k, :] = 0.0
+        elif tau < beta / 2.0:
+            f[k, :] = dos * fermi(-omegas, 0.0, beta) * np.exp(-omegas * tau)
+        elif tau <= beta:
+            f[k, :] = dos * fermi(omegas, 0.0, beta) * np.exp(omegas * (beta - tau))
+        else:
+            f[k, :] = 0.0
+
+    ### TODO: optimize this: avoid useless integrations
+    return -integrate.simpson(f, axis=1, dx=delta)
 
 
 def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
@@ -75,8 +107,8 @@ def make_Delta_semicirc_w(Gamma, D, beta, Ef):
         if np.abs(w) <= D:
             dos[k] = np.sqrt(D**2 - (w) ** 2) / D**2  # norm = pi/2
 
-    less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
-    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
+    less = 2j * dos * fermi(ww, Ef, beta) * D * Gamma
+    grea = -2j * dos * fermi(ww, Ef, -beta) * D * Gamma
 
     return freq_mesh, grea, less
 
@@ -148,8 +180,8 @@ def make_Delta_lorentzian_w(Gamma, D, beta, Ef):
     ww = freq_mesh.values()
     dos = D / ((ww) ** 2 + D**2) / np.pi  # norm = 1
 
-    less = 2j * dos * tb.fermi(ww, Ef, beta) * np.pi * D * Gamma
-    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * np.pi * D * Gamma
+    less = 2j * dos * fermi(ww, Ef, beta) * np.pi * D * Gamma
+    grea = -2j * dos * fermi(ww, Ef, -beta) * np.pi * D * Gamma
 
     return freq_mesh, grea, less
 
@@ -221,10 +253,11 @@ def make_Delta_gaussian_w(Gamma, D, beta, Ef):
     ww = freq_mesh.values()
     dos = np.exp(-((ww / D) ** 2) / 2.0) / D  # norm = sqrt(2 pi)
 
-    less = 2j * dos * tb.fermi(ww, Ef, beta) * D * Gamma
-    grea = -2j * dos * tb.one_minus_fermi(ww, Ef, beta) * D * Gamma
+    less = 2j * dos * fermi(ww, Ef, beta) * D * Gamma
+    grea = -2j * dos * fermi(ww, Ef, -beta) * D * Gamma
 
     return freq_mesh, grea, less
+
 
 def make_Delta_gaussian(Gamma, D, beta, Ef, time_mesh=None):
     """

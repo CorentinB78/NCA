@@ -2,8 +2,6 @@ import unittest
 from nca.function_tools import *
 import numpy as np
 from numpy import testing
-import toolbox as tb
-from matplotlib import pyplot as plt
 
 
 class TestRegularNumber(unittest.TestCase):
@@ -188,7 +186,9 @@ class WindowTest(unittest.TestCase):
         np.testing.assert_allclose(window[mask_in], 1.0)
         np.testing.assert_allclose(window[mask_out], 0.0)
 
-        _, der, _, der2 = tb.derivate_twice(x, window)
+        der = np.diff(window) / np.diff(x)
+        x_der = (x[1:] + x[:-1]) / 2.0
+        der2 = np.diff(der) / np.diff(x_der)
 
         np.testing.assert_array_less(np.abs(der), 2.0)
         np.testing.assert_array_less(np.abs(der2), 6.0)

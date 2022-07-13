@@ -1,8 +1,6 @@
 import numpy as np
 from numpy import fft
 from scipy import integrate, interpolate
-import toolbox as tb
-from matplotlib import pyplot as plt
 from .utilities import print_warning_large_error
 
 
@@ -219,22 +217,3 @@ def planck_taper_window(mesh, W, eps):
             out[k] = 1.0
     return out
 
-
-def gf_tau_from_dos(taus, beta, omegas, dos):
-    # TODO: test and fix issues of overflow for large omegas or large beta (see toolbox)
-    delta = omegas[1] - omegas[0]
-
-    f = np.empty((len(taus), len(dos)), dtype=float)
-
-    for k, tau in enumerate(taus):
-        if tau < 0:
-            f[k, :] = 0.0
-        elif tau < beta / 2.0:
-            f[k, :] = dos * tb.fermi(-omegas, 0.0, beta) * np.exp(-omegas * tau)
-        elif tau <= beta:
-            f[k, :] = dos * tb.fermi(omegas, 0.0, beta) * np.exp(omegas * (beta - tau))
-        else:
-            f[k, :] = 0.0
-
-    ### TODO: optimize this: avoid useless integrations
-    return -integrate.simpson(f, axis=1, dx=delta)

@@ -2,8 +2,9 @@ import unittest
 import numpy as np
 from numpy import testing
 from matplotlib import pyplot as plt
-import toolbox as tb
 import nca
+
+from nca.hybridizations import gf_tau_from_dos
 
 
 class TestParams1(unittest.TestCase):
@@ -51,9 +52,7 @@ class TestParams1(unittest.TestCase):
         self.assertAlmostEqual(taus_subset[0], 0.0)
         self.assertAlmostEqual(taus_subset[-1], beta)
 
-        G_real = []
-        for tau in taus_subset:
-            G_real.append(tb.gf_tau_from_dos(tau, beta, freq_mesh.values(), dos))
+        G_real = gf_tau_from_dos(taus_subset, beta, freq_mesh.values(), dos)
 
         # ### Plot
         # plt.plot(taus_subset, G_real, "-x", label="real times")
@@ -115,9 +114,7 @@ class TestParamsInchworm(unittest.TestCase):
         self.assertAlmostEqual(taus_subset[0], 0.0)
         self.assertAlmostEqual(taus_subset[-1], beta)
 
-        G_real = []
-        for tau in taus_subset:
-            G_real.append(tb.gf_tau_from_dos(tau, beta, freq_mesh.values(), dos))
+        G_real = gf_tau_from_dos(taus_subset, beta, freq_mesh.values(), dos)
 
         # ### Plot
         # plt.plot(taus_subset, G_real, "-x", label="real times")

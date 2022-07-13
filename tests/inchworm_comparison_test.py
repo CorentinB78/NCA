@@ -3,7 +3,6 @@ import numpy as np
 from numpy import testing
 import nca
 from matplotlib import pyplot as plt
-import toolbox as tb
 
 
 class TestNcaVsInchworm(unittest.TestCase):

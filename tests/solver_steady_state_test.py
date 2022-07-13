@@ -8,6 +8,13 @@ from nca.solver_steady_state import *
 from nca.state_space import *
 
 
+def cpx_interp(x, xp, fp, left=None, right=None, period=None):
+    """Simple wrapping of numpy.interp for complex values"""
+    r = np.interp(x, xp, fp.real, left, right, period)
+    i = np.interp(x, xp, fp.imag, left, right, period)
+    return r + 1j * i
+
+
 class TestGreenFunction(unittest.TestCase):
     def test_greater(self):
         mesh = Mesh(10.0, 100)
@@ -78,8 +85,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_reta_w_ref = data[:, 1:]
 
-        R_grea_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 0])
-        R_grea_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 1])
+        R_grea_w_0 = cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 0])
+        R_grea_w_1 = cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_grea_w()[:, 1])
 
         testing.assert_allclose(
             1j * R_grea_w_0, 2j * R_reta_w_ref[:, 0].imag, atol=1e-4, rtol=1e-2
@@ -96,8 +103,8 @@ class TestParams1(unittest.TestCase):
         w_ref = data[:, 0].real
         R_less_w_ref = data[:, 1:]
 
-        R_less_w_0 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 0])
-        R_less_w_1 = tb.cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 1])
+        R_less_w_0 = cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 0])
+        R_less_w_1 = cpx_interp(w_ref, S.freq_mesh.values(), S.get_R_less_w()[:, 1])
 
         testing.assert_allclose(
             1j * R_less_w_0, R_less_w_ref[:, 0], atol=1e-4, rtol=1e-2
@@ -166,12 +173,12 @@ class TestParams1(unittest.TestCase):
         mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(m_dos.values()[mask], Ef, beta),
+            fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-m_dos.values()[mask], -Ef, beta),
+            fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 
@@ -429,12 +436,12 @@ class TestInfiniteU(unittest.TestCase):
         mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(m_dos.values()[mask], Ef, beta),
+            fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-m_dos.values()[mask], -Ef, beta),
+            fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 
@@ -532,12 +539,12 @@ class TestExtendedR0(unittest.TestCase):
         mask = np.abs(m_dos.values() - Ef) < 1.0
         np.testing.assert_allclose(
             G_less_w[mask] / Dos_w[mask] / (2j * np.pi),
-            tb.fermi(m_dos.values()[mask], Ef, beta),
+            fermi(m_dos.values()[mask], Ef, beta),
             atol=1e-2,
         )
         np.testing.assert_allclose(
             G_grea_w[mask] / Dos_w[mask] / (-2j * np.pi),
-            tb.fermi(-m_dos.values()[mask], -Ef, beta),
+            fermi(-m_dos.values()[mask], -Ef, beta),
             atol=1e-2,
         )
 

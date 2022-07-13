@@ -3,7 +3,6 @@ from .function_tools import *
 from .utilities import print_warning_large_error
 
 from matplotlib import pyplot as plt
-import toolbox as tb
 
 
 ### TODO: restrict real quantities to float
@@ -185,7 +184,7 @@ class SolverImagTime:
         if orb >= self.nr_orbitals:
             raise ValueError
 
-        times_cut, R_tau_cut = tb.vcut(
+        times_cut, R_tau_cut = vcut(
             self.time_mesh.values(),
             self.R_tau,
             0.0 - self.time_mesh.delta / 2.0,  # including 0.
@@ -204,3 +203,29 @@ class SolverImagTime:
         idx = self.time_mesh.idx_pt_on_value
         G_tau /= np.sum(self.R_tau[idx, :].real)
         return times_cut, G_tau
+
+
+def vcut(coord, values, left=None, right=None, axis=-1):
+    """
+    Cut the coordinate and values arrays of a sampled function so as to reduce
+    its coordinate range to [`left`, `right`].
+
+    Return views.
+    None means infinity.
+    """
+    coord_out = np.asarray(coord)
+    values_out = np.swapaxes(values, 0, axis)
+
+    if left is not None:
+        left_i = np.searchsorted(coord_out, [left])[0]
+        coord_out = coord_out[left_i:]
+        values_out = values_out[left_i:]
+    if right is not None:
+        right_i = np.searchsorted(coord_out, [right])[0]
+        if right_i < len(coord_out):
+            coord_out = coord_out[:right_i]
+            values_out = values_out[:right_i]
+
+    values_out = np.swapaxes(values_out, 0, axis)
+
+    return coord_out, values_out

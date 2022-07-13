@@ -1,6 +1,5 @@
 import numpy as np
 from .function_tools import fourier_transform, inv_fourier_transform
-import toolbox as tb
 from scipy import integrate
 
 
@@ -280,17 +279,6 @@ class CoreSolverSteadyState:
         return self.R_less_w.copy()
 
     ### Utilities ###
-
-    def check_quality_grid(self, tol_delta):
-        _, _, w, der2 = tb.derivate_twice(self.freqs, self.R_grea_w, axis=0)
-        der2 = integrate.simpson(x=w, y=np.abs(der2), axis=0)
-        err_delta = self.freq_mesh.delta**2 * der2 / 12.0
-
-        print(f"Quality grid: delta error ={err_delta}")
-        print(f"Quality grid: norm error = {self.get_normalization_error()}")
-
-        dw = np.sqrt(12 * tol_delta / np.max(der2))
-        print(f"Max time advised: {np.pi / dw}")
 
     def get_normalization_error(self):
         """
