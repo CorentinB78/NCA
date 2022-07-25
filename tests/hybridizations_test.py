@@ -8,7 +8,7 @@ from nca.hybridizations import *
 
 class TestHybridization(unittest.TestCase):
     def test_semi_circ(self):
-        t_mesh = Mesh(5000.0, 1000000)
+        t_mesh = Mesh(5000.0, 100000)
         Gamma = 3.0
         D = 2.0
         beta = 5.0

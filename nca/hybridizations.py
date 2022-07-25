@@ -1,6 +1,8 @@
 import numpy as np
 from .function_tools import *
-from .utilities import print_warning_large_error
+from .utilities import print_warning_large_error, symmetrize
+from scipy.special import roots_jacobi
+
 
 # TODO: swap outputs to respect default order: grea, less
 
@@ -89,7 +91,7 @@ def make_Delta_semicirc_tau(Gamma, D, E0, beta, nr_points, time_mesh):
     return delta
 
 
-def make_Delta_semicirc_w(Gamma, D, beta, Ef):
+def make_Delta_semicirc_w(Gamma, D, beta, Ef, freq_mesh):
     """
     Frequency domain Lesser and Greater hybridization functions of bath with semicircular DOS.
 
@@ -98,30 +100,11 @@ def make_Delta_semicirc_w(Gamma, D, beta, Ef):
         D -- half bandwidth
         beta -- inverse temperature
         Ef -- Fermi level
+        freq_mesh -- frequency mesh
 
     Returns:
-        freq_mesh, delta_grea, delta_less
+        delta_grea, delta_less
     """
-
-    dw = D
-    if np.abs(Ef) < D + 4.0 / beta:
-        dw = min(dw, 1.0 / beta)
-    dw = dw / 100.0
-    wmax = 100.0 * D
-    N = 2 * round(wmax / dw) + 1
-
-    print_warning_large_error(
-        f"[Semicirc] Large number of samples required N={N}", N, tolw=1e7, tole=1e8
-    )
-    if N >= 1e7:
-        r = N * 1e-7
-        dw *= np.sqrt(r)
-        wmax /= np.sqrt(r)
-        N = 2 * round(wmax / dw) + 1
-        print(f"[Semicirc] Reduced to {N}.")
-
-    freq_mesh = Mesh(wmax, N, pt_on_value=D - wmax / (N - 1), adjust_nr_samples=False)
-
     ww = freq_mesh.values()
     dos = np.zeros(len(ww), dtype=float)
     for k, w in enumerate(ww):
@@ -131,12 +114,173 @@ def make_Delta_semicirc_w(Gamma, D, beta, Ef):
     less = 2j * dos * fermi(ww, Ef, beta) * D * Gamma
     grea = -2j * dos * fermi(ww, Ef, -beta) * D * Gamma
 
-    return freq_mesh, grea, less
+    return grea, less
 
 
-def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
+def fourier_transform_semicirc(f, halfwidth, dt, nr_times, order):
     """
-    Lesser and Greater hybridization funcitons of bath with semicircular DOS.
+    Compute Fourier transform of function weighted by a semicircular density:
+    \int_{-D}^{D} dw f(w) \sqrt{D^2 - w^2} / D^2 e^{iwt}
+    for t > 0
+
+    Using Gauss-Jacobi quadrature.
+
+    Arguments:
+        f -- function
+        halfwidth -- float, half width of semicircular density
+        dt -- float, time spacing
+        nr_times -- int, number of times
+        order -- int, order of quadrature
+
+    Returns:
+        1D array, Fourier transform at given time points
+    """
+    out = np.empty(nr_times, dtype=complex)
+    ww, weights = roots_jacobi(order, 0.5, 0.5)
+    weights *= f(halfwidth * ww)
+    expo = np.exp(1j * halfwidth * ww * dt)
+    fourier_factor = 1.0
+
+    for i in range(nr_times):
+        out[i] = np.sum(weights * fourier_factor)
+        fourier_factor *= expo
+
+    return out
+
+
+def fourier_transform_semicirc_auto(
+    f, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=False
+):
+    """
+    Compute Fourier transform of function weighted by a semicircular density:
+    \int_{-D}^{D} dw f(w) \sqrt{D^2 - w^2} / D^2 e^{iwt}
+    for t > 0
+
+    Using Gauss-Jacobi quadrature with automatic choice of order to respect tolerance.
+
+    Arguments:
+        f -- function
+        halfwidth -- float, half width of semicircular density
+        dt -- float, time spacing
+        nr_times -- int, number of times
+
+    Keyword Arguments:
+        tol -- float, tolerance (default: {1e-10})
+        max_order -- maximum quadrature order (default: {100000})
+        verbose -- of True, print convergence messages (default: {False})
+
+    Returns:
+        1D array, Fourier transform at given time points
+    """
+    n = 100
+    ft = fourier_transform_semicirc(f, halfwidth, dt, nr_times, n)
+
+    err = np.inf
+    while True:
+        if 2 * n > max_order:
+            print("/!\ [semicircular FT] max quadrature order reached")
+            break
+
+        n *= 2
+        ft_new = fourier_transform_semicirc(f, halfwidth, dt, nr_times, n)
+        err = np.max(np.abs(ft - ft_new))
+        if verbose:
+            print(f"{n}: \t {err}")
+        ft = ft_new
+
+        if err < tol:
+            break
+
+    return ft
+
+
+def semicirc_lesser_times(
+    mu, beta, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=True
+):
+    """
+    Computes g^<(t) of bath with semicircular density of states.
+
+    Arguments:
+        mu -- float, chem. potential
+        beta -- float, inverse temperature
+        halfwidth -- float, half width of semicircular density of states
+        dt -- float, time spacing
+        nr_times -- int, number of times
+
+    Keyword Arguments:
+        tol -- float, tolerance (default: {1e-10})
+        max_order -- maximum quadrature order (default: {100000})
+        verbose -- of True, print convergence messages (default: {False})
+
+    Returns:
+        times, values -- two 1D arrays
+    """
+
+    def f(w):
+        return fermi(w, mu, beta)
+
+    gf = fourier_transform_semicirc_auto(
+        f,
+        halfwidth,
+        dt,
+        nr_times,
+        tol=tol * np.pi / 2.0,
+        max_order=max_order,
+        verbose=verbose,
+    )
+    gf *= 2.0j / np.pi
+    gf = gf[::-1]
+
+    times = np.arange(-nr_times + 1, 1) * dt
+
+    return symmetrize(times, gf, 0.0, lambda y: -np.conj(y))
+
+
+def semicirc_greater_times(
+    mu, beta, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=True
+):
+    """
+    Computes g^>(t) of bath with semicircular density of states.
+
+    Arguments:
+        mu -- float, chem. potential
+        beta -- float, inverse temperature
+        halfwidth -- float, half width of semicircular density of states
+        dt -- float, time spacing
+        nr_times -- int, number of times
+
+    Keyword Arguments:
+        tol -- float, tolerance (default: {1e-10})
+        max_order -- maximum quadrature order (default: {100000})
+        verbose -- of True, print convergence messages (default: {False})
+
+    Returns:
+        times, values -- two 1D arrays
+    """
+
+    def f(w):
+        return fermi(w, mu, -beta)
+
+    gf = fourier_transform_semicirc_auto(
+        f,
+        halfwidth,
+        dt,
+        nr_times,
+        tol=tol * np.pi / 2.0,
+        max_order=max_order,
+        verbose=verbose,
+    )
+    gf *= -2.0j / np.pi
+    gf = gf[::-1]
+
+    times = np.arange(-nr_times + 1, 1) * dt
+
+    return symmetrize(times, gf, 0.0, lambda y: -np.conj(y))
+
+
+def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
+    """
+    Lesser and Greater hybridization functions of bath with semicircular DOS.
 
     Arguments:
         Gamma -- coupling at zero energy
@@ -148,18 +292,17 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh=None):
     Returns:
         delta_less, delta_grea
     """
-    freq_mesh, grea, less = make_Delta_semicirc_w(Gamma, D, beta, Ef)
+    dt = time_mesh.delta
+    N = len(time_mesh) // 2 + 1
+    times, gfl = semicirc_lesser_times(Ef, beta, D, dt, N)
+    times, gfg = semicirc_greater_times(Ef, beta, D, dt, N)
 
-    time_mesh_comp, delta_less = inv_fourier_transform(freq_mesh, less)
-    time_mesh_comp, delta_grea = inv_fourier_transform(freq_mesh, grea)
+    np.testing.assert_allclose(times, time_mesh)
 
-    if time_mesh is None:
-        return time_mesh_comp, delta_less, delta_grea
+    gfl *= D * Gamma / 2.0
+    gfg *= D * Gamma / 2.0
 
-    delta_grea = checked_interp(time_mesh, time_mesh_comp, delta_grea)
-    delta_less = checked_interp(time_mesh, time_mesh_comp, delta_less)
-
-    return delta_less, delta_grea
+    return gfl, gfg
 
 
 def make_Delta_lorentzian_w(Gamma, D, beta, Ef):
