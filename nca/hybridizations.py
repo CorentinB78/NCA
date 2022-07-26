@@ -172,7 +172,8 @@ def fourier_transform_semicirc_auto(
     Returns:
         1D array, Fourier transform at given time points
     """
-    n = 100
+    n = int(halfwidth * dt * nr_times)
+    n = max(n, 100)
     ft = fourier_transform_semicirc(f, halfwidth, dt, nr_times, n)
 
     err = np.inf
