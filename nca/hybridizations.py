@@ -1,7 +1,7 @@
 import numpy as np
 from .function_tools import *
 from .utilities import print_warning_large_error, symmetrize
-from scipy.special import roots_jacobi
+from scipy.special import roots_jacobi, roots_legendre
 
 
 # TODO: swap outputs to respect default order: grea, less
@@ -148,7 +148,7 @@ def fourier_transform_semicirc(f, halfwidth, dt, nr_times, order):
     return out
 
 
-def fourier_transform_semicirc_auto(
+def fourier_transform_semicirc_auto_old(
     f, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=False
 ):
     """
@@ -174,6 +174,8 @@ def fourier_transform_semicirc_auto(
     """
     n = int(halfwidth * dt * nr_times)
     n = max(n, 100)
+    if verbose:
+        print(f"{n}: \t ---")
     ft = fourier_transform_semicirc(f, halfwidth, dt, nr_times, n)
 
     err = np.inf
@@ -195,9 +197,108 @@ def fourier_transform_semicirc_auto(
     return ft
 
 
-def semicirc_lesser_times(
-    mu, beta, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=True
+def fourier_transform_semicirc_auto(
+    f, halfwidth, dt, nr_times, tol=1e-10, order=1000, verbose=False
 ):
+    def left(b):
+        y, weights = roots_jacobi(order, 0.0, 0.5)
+        slope = (b + 1.0) / 2.0
+        x = slope * (y + 1) - 1.0
+        weights *= f(halfwidth * x) * np.sqrt(1.0 - x)
+
+        expo = np.exp(1j * halfwidth * x * dt)
+        fourier_factor = 1.0
+
+        out = np.empty(nr_times, dtype=complex)
+        for i in range(nr_times):
+            out[i] = np.sum(weights * fourier_factor)
+            fourier_factor *= expo
+
+        return slope**1.5 * out
+
+    def right(a):
+        y, weights = roots_jacobi(order, 0.5, 0.0)
+        slope = (1.0 - a) / 2.0
+        x = slope * (y - 1) + 1.0
+        weights *= f(halfwidth * x) * np.sqrt(1.0 + x)
+
+        expo = np.exp(1j * halfwidth * x * dt)
+        fourier_factor = 1.0
+
+        out = np.empty(nr_times, dtype=complex)
+        for i in range(nr_times):
+            out[i] = np.sum(weights * fourier_factor)
+            fourier_factor *= expo
+
+        return slope**1.5 * out
+
+    def center(a, b):
+        y, weights = roots_legendre(order)
+        slope = (b - a) / 2.0
+        x = slope * (y - 1.0) + b
+        weights *= f(halfwidth * x) * np.sqrt(1.0 - x**2)
+
+        expo = np.exp(1j * halfwidth * x * dt)
+        fourier_factor = 1.0
+
+        out = np.empty(nr_times, dtype=complex)
+        for i in range(nr_times):
+            out[i] = np.sum(weights * fourier_factor)
+            fourier_factor *= expo
+
+        return slope * out
+
+    def left_rec(b, vals):
+        a = (b - 1.0) / 2.0
+        vals_l = left(a)
+        vals_r = center(a, b)
+        vals_new = vals_l + vals_r
+
+        if np.max(np.abs(vals - vals_new)) > tol:
+            return left_rec(a, vals_l) + center_rec(a, b, vals_r)
+        else:
+            return vals_new
+
+    def right_rec(a, vals):
+        b = (1.0 + a) / 2.0
+        vals_l = right(b)
+        vals_r = center(a, b)
+        vals_new = vals_l + vals_r
+
+        if np.max(np.abs(vals - vals_new)) > tol:
+            return right_rec(b, vals_l) + center_rec(a, b, vals_r)
+        else:
+            return vals_new
+
+    def center_rec(a, b, vals):
+        m = (a + b) / 2.0
+        vals_l = center(a, m)
+        vals_r = center(m, b)
+        vals_new = vals_l + vals_r
+
+        if np.max(np.abs(vals - vals_new)) > tol:
+            return center_rec(a, m, vals_l) + center_rec(m, b, vals_r)
+        else:
+            return vals_new
+
+    nr_panels = int(dt * nr_times / (halfwidth * order))
+    nr_panels = max(nr_panels, 2)
+    if verbose:
+        print("Initial nr of panels:", nr_panels)
+    xi = np.linspace(-1.0, 1.0, nr_panels + 1)
+
+    vals_l = left(xi[1])
+    vals_r = right(xi[-2])
+    out = left_rec(xi[1], vals_l) + right_rec(xi[-2], vals_r)
+
+    for i in range(1, nr_panels - 1):
+        vals = center(xi[i], xi[i + 1])
+        out += center_rec(xi[i], xi[i + 1], vals)
+
+    return out
+
+
+def semicirc_lesser_times(mu, beta, halfwidth, dt, nr_times, tol=1e-10, verbose=True):
     """
     Computes g^<(t) of bath with semicircular density of states.
 
@@ -226,7 +327,6 @@ def semicirc_lesser_times(
         dt,
         nr_times,
         tol=tol * np.pi / 2.0,
-        max_order=max_order,
         verbose=verbose,
     )
     gf *= 2.0j / np.pi
@@ -237,9 +337,7 @@ def semicirc_lesser_times(
     return symmetrize(times, gf, 0.0, lambda y: -np.conj(y))
 
 
-def semicirc_greater_times(
-    mu, beta, halfwidth, dt, nr_times, tol=1e-10, max_order=100000, verbose=True
-):
+def semicirc_greater_times(mu, beta, halfwidth, dt, nr_times, tol=1e-10, verbose=True):
     """
     Computes g^>(t) of bath with semicircular density of states.
 
@@ -268,7 +366,6 @@ def semicirc_greater_times(
         dt,
         nr_times,
         tol=tol * np.pi / 2.0,
-        max_order=max_order,
         verbose=verbose,
     )
     gf *= -2.0j / np.pi
