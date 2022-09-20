@@ -12,7 +12,7 @@ class CoreSolverSteadyState:
         For now only diagonal hybridizations and local hamiltonians are supported.
 
         Arguments:
-            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (positive imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
+            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (negative imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
             time_mesh -- an instance of `Mesh` for time coordinates
             list_even_states -- list of int representing the even states
             list_odd_states -- list of int representing the odd states
