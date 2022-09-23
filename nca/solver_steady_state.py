@@ -122,10 +122,10 @@ class SolverSteadyState:
             delta_less -- 1D array, lesser hybridization function on time mesh of the solver
 
         Raises:
-            RuntimeError: Hybridization functions cannot be modified after starting calculation
+            RuntimeError: A bath was added after starting calculation
         """
         if self._lock_hybs:
-            raise RuntimeError
+            raise RuntimeError("A bath cannot be added after starting calculation")
 
         states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
 
@@ -444,7 +444,7 @@ def AIM_infinite_U(local_evol, time_mesh):
     Return solver for a single-site Anderson impurity model with infinite Hubbard interaction
 
     Arguments:
-        local_evol -- list of local evolution (length 4)
+        local_evol -- list of local evolutions (length 3, see doc of `SolverSteadyState`)
         time_mesh -- Mesh instance for time coordinates
 
     Returns:

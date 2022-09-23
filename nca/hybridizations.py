@@ -200,6 +200,17 @@ def fourier_transform_semicirc_auto_old(
 def fourier_transform_semicirc_auto(
     f, halfwidth, dt, nr_times, tol=1e-10, order=1000, verbose=False
 ):
+    """
+    Computes the Fourier transform of w -> f(w) sqrt(D^2 - w^2) / D^2 defined on finite support [-D, D].
+    TODO: check that
+
+    Exact formula:
+    $$
+    f(t) = \frac{1}{D^2} \int_{-D}^{D} d\omega f(\omega) \sqrt{D^2 - \omega^2} e^{i\omega t}
+    $$
+
+    """
+    # TODO: test it!
     def left(b):
         y, weights = roots_jacobi(order, 0.0, 0.5)
         slope = (b + 1.0) / 2.0
