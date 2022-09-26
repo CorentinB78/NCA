@@ -132,7 +132,9 @@ class SolverSteadyState:
             self._hybs[a].append((b, delta_grea, delta_less))
             self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
 
-    def greater_loop(self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0):
+    def greater_loop(
+        self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0, return_iterations=False
+    ):
         """
         Perform self-consistency loop for R^> and S^>.
 
@@ -143,6 +145,7 @@ class SolverSteadyState:
             max_iter -- maximum number of iterations (default: {100})
             verbose -- if True, print information at each iteration (default: {False})
             alpha -- level of mixing (default: {1.0} no mixing)
+            return_iterations -- if True, return a list of R at each iteration
         """
         self._lock_hybs = True
         self.core.hybridizations = self._hybs
@@ -154,6 +157,13 @@ class SolverSteadyState:
         callback_func = None
 
         self.core.initialize_grea()
+
+        if return_iterations:
+            # after initialization
+            R_all = [self.core.R_grea_w.copy()]
+
+            def callback_func(R, n_iter):
+                R_all.append(R.copy())
 
         fixed_point_loop(
             self.core.fixed_pt_function_grea,
@@ -170,7 +180,12 @@ class SolverSteadyState:
 
         # self.core.S_grea_w = 2.0 * self.core.S_reta_w.imag
 
-    def lesser_loop(self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0):
+        if return_iterations:
+            return R_all
+
+    def lesser_loop(
+        self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0, return_iterations=False
+    ):
         """
         Perform self-consistency loop for R^< and S^<.
 
@@ -181,6 +196,7 @@ class SolverSteadyState:
             max_iter -- maximum number of iterations (default: {100})
             verbose -- if True, print information at each iteration (default: {False})
             alpha -- level of mixing (default: {1.0} no mixing)
+            return_iterations -- if True, return a list of R at each iteration
         """
         self._lock_hybs = True
         self.core.hybridizations = self._hybs
@@ -193,6 +209,13 @@ class SolverSteadyState:
 
         self.core.initialize_less()
 
+        if return_iterations:
+            # after initialization
+            R_all = [self.core.R_less_w.copy()]
+
+            def callback_func(R, n_iter):
+                R_all.append(R.copy())
+
         fixed_point_loop(
             self.core.fixed_pt_function_less,
             self.core.R_less_w,
@@ -203,6 +226,9 @@ class SolverSteadyState:
             err_func=err_func,
             alpha=alpha,
         )
+
+        if return_iterations:
+            return R_all
 
     ### R and S getters ###
 
