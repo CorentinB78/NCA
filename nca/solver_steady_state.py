@@ -1,5 +1,4 @@
 import numpy as np
-from matplotlib import pyplot as plt
 from .function_tools import fourier_transform, inv_fourier_transform
 from .state_space import StateSpace
 from .core_steady_state import CoreSolverSteadyState
@@ -133,9 +132,7 @@ class SolverSteadyState:
             self._hybs[a].append((b, delta_grea, delta_less))
             self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
 
-    def greater_loop(
-        self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0
-    ):
+    def greater_loop(self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0):
         """
         Perform self-consistency loop for R^> and S^>.
 
@@ -144,7 +141,6 @@ class SolverSteadyState:
         Keyword Arguments:
             tol -- tolerance to reach for the loop to stop (default: {1e-8})
             max_iter -- maximum number of iterations (default: {100})
-            plot -- if True, make plot at each iteration (default: {False})
             verbose -- if True, print information at each iteration (default: {False})
             alpha -- level of mixing (default: {1.0} no mixing)
         """
@@ -155,12 +151,7 @@ class SolverSteadyState:
             e = np.sum(np.abs(R)) * self.freq_mesh.delta / self.D
             return e
 
-        def callback_func(R, n_iter):
-            plt.plot(
-                self.freq_mesh.values(),
-                -R[:, 0].imag,
-                label=str(n_iter),
-            )
+        callback_func = None
 
         self.core.initialize_grea()
 
@@ -170,20 +161,16 @@ class SolverSteadyState:
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
-            callback_func=callback_func if plot else None,
+            callback_func=callback_func,
             err_func=err_func,
             alpha=alpha,
         )
-
-        if plot:
-            plt.legend()
-            plt.xlim(-20, 15)
 
         self.core.R_reta_sqr_w = np.abs(self.get_R_reta_w()) ** 2
 
         # self.core.S_grea_w = 2.0 * self.core.S_reta_w.imag
 
-    def lesser_loop(self, tol=1e-8, max_iter=100, plot=False, verbose=False, alpha=1.0):
+    def lesser_loop(self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0):
         """
         Perform self-consistency loop for R^< and S^<.
 
@@ -192,7 +179,6 @@ class SolverSteadyState:
         Keyword Arguments:
             tol -- tolerance to reach for the loop to stop (default: {1e-8})
             max_iter -- maximum number of iterations (default: {100})
-            plot -- if True, make plot at each iteration (default: {False})
             verbose -- if True, print information at each iteration (default: {False})
             alpha -- level of mixing (default: {1.0} no mixing)
         """
@@ -203,13 +189,7 @@ class SolverSteadyState:
             e = np.sum(np.abs(R)) * self.freq_mesh.delta / self.D
             return e
 
-        def callback_func(R, n_iter):
-            plt.plot(
-                self.freq_mesh.values(),
-                R[:, 0].imag,
-                label=str(n_iter),
-                color="b" if n_iter % 2 else "r",
-            )
+        callback_func = None
 
         self.core.initialize_less()
 
@@ -219,14 +199,10 @@ class SolverSteadyState:
             tol=tol,
             max_iter=max_iter,
             verbose=verbose,
-            callback_func=callback_func if plot else None,
+            callback_func=callback_func,
             err_func=err_func,
             alpha=alpha,
         )
-
-        if plot:
-            plt.legend()
-            plt.xlim(-20, 15)
 
     ### R and S getters ###
 
