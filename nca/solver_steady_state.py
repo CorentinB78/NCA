@@ -161,9 +161,11 @@ class SolverSteadyState:
         if return_iterations:
             # after initialization
             R_all = [self.core.R_grea_w.copy()]
+            S_all = [self.get_S_grea_w().copy()]
 
             def callback_func(R, n_iter):
                 R_all.append(R.copy())
+                S_all.append(self.get_S_grea_w().copy())
 
         fixed_point_loop(
             self.core.fixed_pt_function_grea,
@@ -181,7 +183,7 @@ class SolverSteadyState:
         # self.core.S_grea_w = 2.0 * self.core.S_reta_w.imag
 
         if return_iterations:
-            return R_all
+            return R_all, S_all
 
     def lesser_loop(
         self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0, return_iterations=False
@@ -212,9 +214,11 @@ class SolverSteadyState:
         if return_iterations:
             # after initialization
             R_all = [self.core.R_less_w.copy()]
+            S_all = [self.get_S_less_w().copy()]
 
             def callback_func(R, n_iter):
                 R_all.append(R.copy())
+                S_all.append(self.get_S_less_w().copy())
 
         fixed_point_loop(
             self.core.fixed_pt_function_less,
@@ -228,7 +232,7 @@ class SolverSteadyState:
         )
 
         if return_iterations:
-            return R_all
+            return R_all, S_all
 
     ### R and S getters ###
 
