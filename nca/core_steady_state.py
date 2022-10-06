@@ -173,7 +173,7 @@ class CoreSolverSteadyState:
 
         Arguments:
             parity_flag -- boolean, True for even states, False for odd states
-            R_grea -- 2D array (times, states) for R^< for the complementary states
+            R_less -- 2D array (times, states) for R^< for the complementary states
 
         Returns:
             2D array (times, states)
