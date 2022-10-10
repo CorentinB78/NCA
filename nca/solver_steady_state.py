@@ -51,6 +51,7 @@ def lesser_gf(orbital, state_space, time_mesh, R_grea, R_less, Z):
         time_mesh -- Mesh instance
         G_grea -- 1D array
     """
+    # TODO: time_mesh is not used!
     R_grea = np.asarray(R_grea, dtype=complex)
     R_less = np.asarray(R_less, dtype=complex)
 
@@ -437,6 +438,21 @@ class SolverSteadyState:
         dos = 1j * (G_grea - G_less) / (2 * np.pi)
         m, dos = fourier_transform(m, dos)
         return m, np.real(dos)
+
+    def get_occupation(self, orbital):
+        """
+        Compute occupation of given orbital.
+
+        Arguments:
+            orbital -- int
+
+        Returns:
+            occupation -- float
+        """
+        time_mesh, G_less = self.get_G_less(orbital)
+
+        idx0 = len(time_mesh) // 2
+        return G_less[idx0].imag
 
     def get_normalization_error(self):
         return self.core.get_normalization_error()
