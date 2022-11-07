@@ -6,9 +6,11 @@ os.environ["MKL_NUM_THREADS"] = str(1)
 os.environ["VECLIB_MAXIMUM_THREADS"] = str(1)
 os.environ["NUMEXPR_NUM_THREADS"] = str(1)
 
+
 import nca
 import numpy as np
 import time
+import cProfile
 
 
 mesh = nca.Mesh(100.0, 200001)
@@ -37,9 +39,8 @@ S.add_bath(1, delta_grea, delta_less)
 
 print(S.state_space.basis)
 
-start = time.time()
-S.greater_loop(max_iter=20)
-S.lesser_loop(max_iter=20)
-runtime = time.time() - start
+with cProfile.Profile() as pr:
+    S.greater_loop(max_iter=20)
+    S.lesser_loop(max_iter=20)
 
-print(f"Run time: {runtime}")
+pr.print_stats()
