@@ -25,7 +25,7 @@ class TestParams1(unittest.TestCase):
 
         S_imag = nca.SolverImagTime(beta, H_loc, {0: delta, 1: delta}, tau_mesh)
 
-        S_imag.solve(plot=False, verbose=True)
+        S_imag.solve(verbose=True)
 
         taus, G_imag = S_imag.get_G_tau(0)
         self.assertAlmostEqual(taus[0], 0.0)
@@ -40,8 +40,8 @@ class TestParams1(unittest.TestCase):
         S_real.add_bath(0, delta_grea, delta_less)
         S_real.add_bath(1, delta_grea, delta_less)
 
-        S_real.greater_loop(plot=False, verbose=True)
-        S_real.lesser_loop(plot=False, verbose=True)
+        S_real.greater_loop(verbose=True)
+        S_real.lesser_loop(verbose=True)
 
         freq_mesh, dos = S_real.get_DOS(0)
 
@@ -86,7 +86,7 @@ class TestParamsInchworm(unittest.TestCase):
 
         S_imag = nca.SolverImagTime(beta, H_loc, {0: delta, 1: delta}, tau_mesh)
 
-        S_imag.solve(plot=False, verbose=True)
+        S_imag.solve(verbose=True)
 
         taus, G_imag = S_imag.get_G_tau(0)
         self.assertAlmostEqual(taus[0], 0.0)
@@ -102,8 +102,8 @@ class TestParamsInchworm(unittest.TestCase):
         S_real.add_bath(0, delta_grea, delta_less)
         S_real.add_bath(1, delta_grea, delta_less)
 
-        S_real.greater_loop(plot=False, verbose=True)
-        S_real.lesser_loop(plot=False, verbose=True)
+        S_real.greater_loop(verbose=True)
+        S_real.lesser_loop(verbose=True)
 
         freq_mesh, dos = S_real.get_DOS(0)
 

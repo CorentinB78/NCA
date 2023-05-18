@@ -73,8 +73,8 @@ class TestParams1(unittest.TestCase):
         S.add_bath(0, delta_grea, delta_less)
         S.add_bath(1, delta_grea, delta_less)
 
-        S.greater_loop(plot=False, verbose=True)
-        S.lesser_loop(plot=False, verbose=True, max_iter=20)
+        S.greater_loop(verbose=True)
+        S.lesser_loop(verbose=True, max_iter=20)
 
         cls.S = S
 
@@ -373,8 +373,8 @@ class TestInfiniteU(unittest.TestCase):
         S.add_bath(0, delta_grea, delta_less)
         S.add_bath(1, delta_grea, delta_less)
 
-        S.greater_loop(plot=False, verbose=True)
-        S.lesser_loop(plot=False, verbose=True, max_iter=20)
+        S.greater_loop(verbose=True)
+        S.lesser_loop(verbose=True, max_iter=20)
 
         cls.S = S
 
@@ -478,7 +478,7 @@ class TestExtendedR0(unittest.TestCase):
         S.add_bath(0, delta_grea, delta_less)
         S.add_bath(1, delta_grea, delta_less)
 
-        S.greater_loop(plot=False, verbose=True)
+        S.greater_loop(verbose=True)
         S.lesser_loop(verbose=True, max_iter=100)
 
         cls.S = S
@@ -574,7 +574,7 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
         S.add_bath(0, delta_grea, delta_less)
         S.add_bath(1, delta_grea, delta_less)
 
-        S.greater_loop(tol=1e-10, verbose=True, plot=False)
+        S.greater_loop(tol=1e-10, verbose=True)
         S.lesser_loop(tol=1e-10, verbose=True)
         # plt.plot(S.times, S.get_R_less()[:, 2].real)
         # plt.plot(S.times, S.get_R_less()[:, 2].imag)
