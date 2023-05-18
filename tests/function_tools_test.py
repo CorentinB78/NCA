@@ -193,6 +193,21 @@ class WindowTest(unittest.TestCase):
         np.testing.assert_array_less(np.abs(der), 2.0)
         np.testing.assert_array_less(np.abs(der2), 6.0)
 
+def test_alpert_fourier_transform():
+    tmax = 10.45
+
+    door_func = AlpertMeshFunction(tmax=tmax, M=1000, order=16)
+    door_func.values_left = np.ones_like(door_func.times_left)
+    door_func.values_center = np.ones_like(door_func.times_center)
+    door_func.values_right = np.ones_like(door_func.times_right)
+
+    w, fw = alpert_fourier_transform(door_func)
+
+    fw_ref = tmax * np.sinc(w * tmax / np.pi / 2.) * np.exp(1j * w * tmax / 2.)
+
+    np.testing.assert_allclose(fw, fw_ref, rtol=1e-8, atol=1e-4)
+    mask = np.abs(w) <= 100.
+    np.testing.assert_allclose(fw[mask], fw_ref[mask], rtol=1e-8, atol=1e-10)
 
 if __name__ == "__main__":
     unittest.main()
