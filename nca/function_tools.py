@@ -461,8 +461,10 @@ class AlpertMeshFunction:
         delta_t = tmax / N
 
         self.tmax = tmax
+        self.order = order
         self.delta_t = delta_t
         self.N = N
+        self.M = M
         self.a = a
         self.alpert_weights = w
         self.times_left = delta_t * x
@@ -473,6 +475,38 @@ class AlpertMeshFunction:
         self.values_left = None
         self.values_center = None
         self.values_right = None
+
+    def has_same_rule_as(self, other):
+        return self.order == other.order and self.N == other.N and self.tmax == other.tmax
+
+    def __iadd__(self, other):
+        if not(self.has_same_rule_as(other)):
+            raise ValueError("Cannot add AlpertMeshFunctions with different Alpert rules")
+        if self.values_left is None: # object was not populated and represents the zero function
+            self.values_left = other.values_left
+            self.values_center = other.values_center
+            self.values_right = other.values_right
+
+        self.values_left += other.values_left
+        self.values_center += other.values_center
+        self.values_right += other.values_right
+
+    def __mul__(self, other):
+        if not(self.has_same_rule_as(other)):
+            raise ValueError("Cannot multiply AlpertMeshFunctions with different Alpert rules")
+        self.values_left *= other.values_left
+        self.values_center *= other.values_center
+        self.values_right *= other.values_right
+
+    def __imul__(self, other):
+        """ in place multiplication with scalar"""
+        self.values_left *= other
+        self.values_center *= other
+        self.values_right *= other
+
+    def get_empty_duplicate(self):
+        return AlpertMeshFunction(self.tmax, self.M, self.order)
+
 
 def alpert_fourier_transform(alpert_function):
     f = alpert_function
@@ -493,3 +527,20 @@ def alpert_fourier_transform(alpert_function):
 
     return w_samples, out
 
+def inv_ft_to_alpert(freq_mesh, func_vals, empty_alpert):
+    assert(len(func_vals) == empty_alpert.N)
+    N = len(func_vals)
+    a = empty_alpert.a
+    dt = empty_alpert.delta_t
+    wmax = freq_mesh.xmax
+
+    vals_t= fft.fft(func_vals * np.exp(-2j * np.pi * a * np.arange(N) / N), n=N, norm="backward")
+    vals_t = vals_t[a + 1:N - a - 1]
+    vals_t *= np.exp(-1j * wmax * empty_alpert.times_center) / dt
+    empty_alpert.values_center = vals_t
+
+    for k, t in enumerate(empty_alpert.times_left):
+        empty_alpert.values_left[k] = np.sum(np.exp(-1j * freq_mesh.values() * t) * func_vals) / empty_alpert.tmax
+
+    for k, t in enumerate(empty_alpert.times_right):
+        empty_alpert.values_right[k] = np.sum(np.exp(-1j * freq_mesh.values() * t) * func_vals) / empty_alpert.tmax

@@ -127,11 +127,13 @@ class CoreSolverSteadyState:
         """
         states = self.even_states if parity_flag else self.odd_states
 
-        S_grea = np.zeros((self.N, len(states)), dtype=complex)
+        S_grea = [R_grea[0].get_empty_duplicate() for _ in states]
 
         for k, a in enumerate(states):
             for b, delta, _ in self.hybridizations[a]:
-                S_grea[:, k] += 1j * delta[:] * R_grea[:, self.state_parity_table[b]]
+                S_grea[k] += delta * R_grea[self.state_parity_table[b]]
+
+            S_grea[k] *= 1j
 
         return S_grea
 
@@ -149,11 +151,14 @@ class CoreSolverSteadyState:
         if parity_flag:
             group_1, group_2 = group_2, group_1
 
-        R_grea = np.empty((self.N, self.D_half), dtype=complex)
+        # R_grea = np.empty((self.N, self.D_half), dtype=complex)
+        R_grea = []
 
         for k, s in enumerate(group_1):
-            _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
-        R_grea *= 1j
+            R_grea.append(...get_empty_duplicate())
+            inv_ft_to_alpert(self.freq_mesh, self.R_grea_w[:, s], R_grea[k])
+            # _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
+            R_grea[k] *= 1j
 
         S_grea = self._self_energy_grea(parity_flag, R_grea)
         del R_grea
@@ -161,6 +166,7 @@ class CoreSolverSteadyState:
         idx0 = self.N // 2
         S_grea[:idx0, :] = 0.0
         S_grea[idx0, :] *= 0.5
+        _, S_grea = alpert_fourier_transform(S_grea) .....
         _, S_grea = fourier_transform(self.time_mesh, S_grea, axis=0)
 
         for k, s in enumerate(group_2):
