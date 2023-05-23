@@ -1,5 +1,5 @@
 import unittest
-from nca.function_tools import *
+from nca.function_tools import next_odd_regular, Mesh, interp, product_functions, sum_functions, fourier_transform, inv_fourier_transform, planck_taper_window, AlpertMeshFunction, alpert_fourier_transform, inv_ft_to_alpert
 import numpy as np
 from numpy import testing
 
@@ -194,20 +194,37 @@ class WindowTest(unittest.TestCase):
         np.testing.assert_array_less(np.abs(der2), 6.0)
 
 def test_alpert_fourier_transform():
-    tmax = 10.45
-
-    door_func = AlpertMeshFunction(tmax=tmax, M=1000, order=16)
+    door_func = AlpertMeshFunction(delta_t=0.01045, M=1000, order=16)
+    tmax = door_func.tmax
     door_func.values_left = np.ones_like(door_func.times_left)
     door_func.values_center = np.ones_like(door_func.times_center)
     door_func.values_right = np.ones_like(door_func.times_right)
 
-    w, fw = alpert_fourier_transform(door_func)
+    w, fw = alpert_fourier_transform(door_func, N=1500)
 
     fw_ref = tmax * np.sinc(w * tmax / np.pi / 2.) * np.exp(1j * w * tmax / 2.)
 
     np.testing.assert_allclose(fw, fw_ref, rtol=1e-8, atol=1e-4)
     mask = np.abs(w) <= 100.
     np.testing.assert_allclose(fw[mask], fw_ref[mask], rtol=1e-8, atol=1e-10)
+
+def test_inverse_alpert():
+    N = 2001
+    wmax = 100.
+    freqs = -wmax + 2 * wmax * np.arange(N) / N
+    f_w = np.sqrt(np.pi) * np.exp(
+        -freqs ** 2 / 4.0 - 1.0j * freqs
+    )
+
+    alpert = inv_ft_to_alpert(freqs, f_w, M=1000, order=6)
+
+    def f_ref(t):
+        return np.exp(-((t + 1.0) ** 2))
+
+    np.testing.assert_allclose(alpert.values_left, f_ref(alpert.times_left), atol=1e-10)
+    np.testing.assert_allclose(alpert.values_right, f_ref(alpert.times_right), atol=1e-10)
+    np.testing.assert_allclose(alpert.values_center, f_ref(alpert.times_center), atol=1e-10)
+
 
 if __name__ == "__main__":
     unittest.main()

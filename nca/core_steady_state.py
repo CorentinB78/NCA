@@ -1,5 +1,5 @@
 import numpy as np
-from .function_tools import fourier_transform, inv_fourier_transform
+from .function_tools import fourier_transform, inv_fourier_transform, AlpertMeshFunction, alpert_fourier_transform, inv_ft_to_alpert
 from scipy import integrate
 
 
@@ -137,7 +137,7 @@ class CoreSolverSteadyState:
 
         return S_grea
 
-    def iteration_grea(self, parity_flag):
+    def iteration_grea(self, parity_flag, M, order):
         """
         Perform one greater iteration.
 
@@ -151,26 +151,21 @@ class CoreSolverSteadyState:
         if parity_flag:
             group_1, group_2 = group_2, group_1
 
-        # R_grea = np.empty((self.N, self.D_half), dtype=complex)
         R_grea = []
-
         for k, s in enumerate(group_1):
-            R_grea.append(...get_empty_duplicate())
-            inv_ft_to_alpert(self.freq_mesh, self.R_grea_w[:, s], R_grea[k])
-            # _, R_grea[:, k] = inv_fourier_transform(self.freq_mesh, self.R_grea_w[:, s])
+            R_grea.append(inv_ft_to_alpert(self.freq_mesh, self.R_grea_w[:, s], M=M, order=order))
             R_grea[k] *= 1j
 
         S_grea = self._self_energy_grea(parity_flag, R_grea)
         del R_grea
 
-        idx0 = self.N // 2
-        S_grea[:idx0, :] = 0.0
-        S_grea[idx0, :] *= 0.5
-        _, S_grea = alpert_fourier_transform(S_grea) .....
-        _, S_grea = fourier_transform(self.time_mesh, S_grea, axis=0)
+        for k in range(len(S_grea)):
+            _, f = alpert_fourier_transform(S_grea[k], N=len(self.freq_mesh))
+            S_grea[k] = f
+
 
         for k, s in enumerate(group_2):
-            r = self.inv_R0_reta_w[:, s] - S_grea[:, k]
+            r = self.inv_R0_reta_w[:, s] - S_grea[k]
             self.R_grea_w[:, s] = np.imag(2.0 / r)
 
     def _self_energy_less(self, parity_flag, R_less):

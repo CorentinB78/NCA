@@ -455,29 +455,25 @@ def _get_alpert_regular_rule(order: int):
 
 class AlpertMeshFunction:
 
-    def __init__(self, tmax, M, order):
+    def __init__(self, delta_t, M, order):
         a, x, w = _get_alpert_regular_rule(order)
-        N = M + 2 * a - 1
-        delta_t = tmax / N
-
-        self.tmax = tmax
+        self.tmax = (M + 2 * a - 1) * delta_t
         self.order = order
         self.delta_t = delta_t
-        self.N = N
         self.M = M
         self.a = a
         self.alpert_weights = w
         self.times_left = delta_t * x
-        assert(self.times_left[-1] < tmax)
+        assert(self.times_left[-1] < self.tmax)
         self.times_center = delta_t * (a + np.arange(M))
-        self.times_right = tmax - self.times_left
+        self.times_right = self.tmax - self.times_left
 
         self.values_left = None
         self.values_center = None
         self.values_right = None
 
     def has_same_rule_as(self, other):
-        return self.order == other.order and self.N == other.N and self.tmax == other.tmax
+        return self.order == other.order and self.M == other.M and self.delta_t == other.delta_t
 
     def __iadd__(self, other):
         if not(self.has_same_rule_as(other)):
@@ -505,16 +501,18 @@ class AlpertMeshFunction:
         self.values_right *= other
 
     def get_empty_duplicate(self):
-        return AlpertMeshFunction(self.tmax, self.M, self.order)
+        return AlpertMeshFunction(self.delta_t, self.M, self.order)
 
 
-def alpert_fourier_transform(alpert_function):
+def alpert_fourier_transform(alpert_function, N):
     f = alpert_function
+    if N < f.M:
+        raise ValueError
     wmax = np.pi / f.delta_t
-    w_samples = -wmax + 2 * wmax * np.arange(f.N) / f.N
+    w_samples = -wmax + 2 * wmax * np.arange(N) / N
 
-    out = fft.ifft(f.values_center * np.exp(-1j * wmax * f.times_center), n=f.N, norm="forward")
-    out *= np.exp(2j * np.pi * np.arange(f.N) * f.a / f.N)
+    out = fft.ifft(f.values_center * np.exp(-1j * wmax * f.times_center), n=N, norm="forward")
+    out *= np.exp(2j * np.pi * np.arange(N) * f.a / N)
 
     for kw, w in enumerate(w_samples):
 
@@ -527,20 +525,29 @@ def alpert_fourier_transform(alpert_function):
 
     return w_samples, out
 
-def inv_ft_to_alpert(freq_mesh, func_vals, empty_alpert):
-    assert(len(func_vals) == empty_alpert.N)
+def inv_ft_to_alpert(w_samples, func_vals, M, order):
+    wmax = -w_samples[0]
+    alpert = AlpertMeshFunction(delta_t=np.pi / wmax, M=M, order=order)
     N = len(func_vals)
-    a = empty_alpert.a
-    dt = empty_alpert.delta_t
-    wmax = freq_mesh.xmax
+    if 2 * alpert.M > N:
+        raise ValueError
+    a = alpert.a
+    M = alpert.M
+    dt = alpert.delta_t
 
-    vals_t= fft.fft(func_vals * np.exp(-2j * np.pi * a * np.arange(N) / N), n=N, norm="backward")
-    vals_t = vals_t[a + 1:N - a - 1]
-    vals_t *= np.exp(-1j * wmax * empty_alpert.times_center) / dt
-    empty_alpert.values_center = vals_t
+    vals_t = fft.fft(func_vals * np.exp(-2j * np.pi * a * np.arange(N) / N), n=N, norm="forward")
+    vals_t = vals_t[:M]
+    # vals_t = fft.fft(func_vals, n=N, norm="forward")
+    # vals_t = vals_t[a:M+a]
+    vals_t *= np.exp(1j * wmax * alpert.times_center) / dt
+    alpert.values_center = vals_t
 
-    for k, t in enumerate(empty_alpert.times_left):
-        empty_alpert.values_left[k] = np.sum(np.exp(-1j * freq_mesh.values() * t) * func_vals) / empty_alpert.tmax
+    alpert.values_left = np.empty_like(alpert.times_left, dtype=complex)
+    for k, t in enumerate(alpert.times_left):
+        alpert.values_left[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * dt)
 
-    for k, t in enumerate(empty_alpert.times_right):
-        empty_alpert.values_right[k] = np.sum(np.exp(-1j * freq_mesh.values() * t) * func_vals) / empty_alpert.tmax
+    alpert.values_right = np.empty_like(alpert.times_right, dtype=complex)
+    for k, t in enumerate(alpert.times_right):
+        alpert.values_right[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * dt)
+
+    return alpert
