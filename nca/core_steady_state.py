@@ -5,7 +5,7 @@ from scipy import integrate
 
 class CoreSolverSteadyState:
     # TODO: implement non-diagonal hybridization functions & local Hamiltonian
-    def __init__(self, local_evol, time_mesh, list_even_states, list_odd_states):
+    def __init__(self, local_evol, time_mesh, list_even_states, list_odd_states, M, order):
         """
         Non-Crossing Approximation (NCA) solver for steady states in real frequencies --- core functions.
 
@@ -27,6 +27,8 @@ class CoreSolverSteadyState:
         N = self.N
         self.D = len(local_evol)
         self.Z_loc = self.D
+        self.M = M
+        self.order = order
 
         self.even_states = list_even_states
         self.odd_states = list_odd_states
@@ -77,11 +79,10 @@ class CoreSolverSteadyState:
         even = self.is_even_state
 
         delta_magn = 0.0
-        idx0 = self.N // 2
 
         for a in self.even_states:
             for b, delta, _ in self.hybridizations[a]:
-                delta_magn += np.abs(delta[idx0]) ** 2
+                delta_magn += np.abs(delta.values_left[0]) ** 2
         delta_magn = np.sqrt(delta_magn)
 
         self.R_grea_w[:, even] = np.imag(
@@ -153,14 +154,14 @@ class CoreSolverSteadyState:
 
         R_grea = []
         for k, s in enumerate(group_1):
-            R_grea.append(inv_ft_to_alpert(self.freq_mesh, self.R_grea_w[:, s], M=M, order=order))
+            R_grea.append(inv_ft_to_alpert(self.freq_mesh.xmin, self.freq_mesh.delta, self.R_grea_w[:, s], M=M, order=order))
             R_grea[k] *= 1j
 
         S_grea = self._self_energy_grea(parity_flag, R_grea)
         del R_grea
 
         for k in range(len(S_grea)):
-            _, f = alpert_fourier_transform(S_grea[k], N=len(self.freq_mesh))
+            _, f = alpert_fourier_transform(S_grea[k], wmin=self.freq_mesh.xmin, N=len(self.freq_mesh))
             S_grea[k] = f
 
 
@@ -248,8 +249,8 @@ class CoreSolverSteadyState:
         """
         self.R_grea_w[...] = R_grea_w
 
-        self.iteration_grea(False)
-        self.iteration_grea(True)
+        self.iteration_grea(False, self.M, self.order)
+        self.iteration_grea(True, self.M, self.order)
 
         self.normalization_error.append(self.get_normalization_error())
 

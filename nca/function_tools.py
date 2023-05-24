@@ -475,44 +475,92 @@ class AlpertMeshFunction:
     def has_same_rule_as(self, other):
         return self.order == other.order and self.M == other.M and self.delta_t == other.delta_t
 
+    def conj(self):
+        out = self.get_empty_duplicate()
+        out.values_left = np.conj(self.values_left)
+        out.values_center = np.conj(self.values_center)
+        out.values_right = np.conj(self.values_right)
+        return out
+
     def __iadd__(self, other):
         if not(self.has_same_rule_as(other)):
             raise ValueError("Cannot add AlpertMeshFunctions with different Alpert rules")
+
         if self.values_left is None: # object was not populated and represents the zero function
             self.values_left = other.values_left
             self.values_center = other.values_center
             self.values_right = other.values_right
-
-        self.values_left += other.values_left
-        self.values_center += other.values_center
-        self.values_right += other.values_right
+        else:
+            self.values_left += other.values_left
+            self.values_center += other.values_center
+            self.values_right += other.values_right
+        return self
 
     def __mul__(self, other):
-        if not(self.has_same_rule_as(other)):
-            raise ValueError("Cannot multiply AlpertMeshFunctions with different Alpert rules")
-        self.values_left *= other.values_left
-        self.values_center *= other.values_center
-        self.values_right *= other.values_right
+        new = self.get_empty_duplicate()
+        if isinstance(other, AlpertMeshFunction):
+            if not(self.has_same_rule_as(other)):
+                raise ValueError("Cannot multiply AlpertMeshFunctions with different Alpert rules")
+
+            new.values_left = self.values_left * other.values_left
+            new.values_center = self.values_center * other.values_center
+            new.values_right = self.values_right * other.values_right
+        else:
+            raise NotImplementedError
+        return new
 
     def __imul__(self, other):
         """ in place multiplication with scalar"""
-        self.values_left *= other
-        self.values_center *= other
-        self.values_right *= other
+        if isinstance(other, AlpertMeshFunction):
+            if not(self.has_same_rule_as(other)):
+                raise ValueError("Cannot multiply AlpertMeshFunctions with different Alpert rules")
+            self.values_left *= other.values_left
+            self.values_center *= other.values_center
+            self.values_right *= other.values_right
+        elif isinstance(other, complex):
+            self.values_left *= other
+            self.values_center *= other
+            self.values_right *= other
+        else:
+            raise NotImplementedError
+        return self
 
     def get_empty_duplicate(self):
         return AlpertMeshFunction(self.delta_t, self.M, self.order)
 
+    def isfinite(self):
+        return np.isfinite(self.values_left).all() and np.isfinite(self.values_right).all() and np.isfinite(self.values_center).all()
 
-def alpert_fourier_transform(alpert_function, N):
+    def check_integrity(self):
+        if self.values_left is None:
+            assert self.values_center is None and self.values_right is None
+        else:
+            assert len(self.times_left) == len(self.values_left)
+            assert len(self.times_center) == len(self.values_center)
+            assert len(self.times_right) == len(self.values_right)
+
+
+def make_alpert(delta_t, M, order, f):
+    out = AlpertMeshFunction(delta_t, M, order)
+    out.values_left = f(out.times_left)
+    out.values_right = f(out.times_right)
+    out.values_center = f(out.times_center)
+
+    if not out.isfinite():
+        raise ValueError("Evaluation of `f` gave non finite values")
+
+    return out
+
+
+def alpert_fourier_transform(alpert_function, wmin, N):
     f = alpert_function
     if N < f.M:
         raise ValueError
-    wmax = np.pi / f.delta_t
-    w_samples = -wmax + 2 * wmax * np.arange(N) / N
+    dw = 2 * np.pi / (N * f.delta_t)
+    w_samples = wmin + np.arange(N) * dw
 
-    out = fft.ifft(f.values_center * np.exp(-1j * wmax * f.times_center), n=N, norm="forward")
-    out *= np.exp(2j * np.pi * np.arange(N) * f.a / N)
+    out = fft.ifft(f.values_center * np.exp(1j * wmin * f.times_center), n=N, norm="forward")
+    out *= np.exp(1j * np.arange(N) * dw * f.times_center[0])
 
     for kw, w in enumerate(w_samples):
 
@@ -525,10 +573,9 @@ def alpert_fourier_transform(alpert_function, N):
 
     return w_samples, out
 
-def inv_ft_to_alpert(w_samples, func_vals, M, order):
-    wmax = -w_samples[0]
-    alpert = AlpertMeshFunction(delta_t=np.pi / wmax, M=M, order=order)
+def inv_ft_to_alpert(wmin, dw, func_vals, M, order):
     N = len(func_vals)
+    alpert = AlpertMeshFunction(delta_t=2 * np.pi / (N * dw), M=M, order=order)
     if 2 * alpert.M > N:
         raise ValueError
     a = alpert.a
@@ -539,9 +586,10 @@ def inv_ft_to_alpert(w_samples, func_vals, M, order):
     vals_t = vals_t[:M]
     # vals_t = fft.fft(func_vals, n=N, norm="forward")
     # vals_t = vals_t[a:M+a]
-    vals_t *= np.exp(1j * wmax * alpert.times_center) / dt
+    vals_t *= np.exp(-1j * wmin * alpert.times_center) / dt
     alpert.values_center = vals_t
 
+    w_samples = wmin + np.arange(N) * dw
     alpert.values_left = np.empty_like(alpert.times_left, dtype=complex)
     for k, t in enumerate(alpert.times_left):
         alpert.values_left[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * dt)

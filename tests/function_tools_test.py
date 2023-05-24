@@ -200,7 +200,8 @@ def test_alpert_fourier_transform():
     door_func.values_center = np.ones_like(door_func.times_center)
     door_func.values_right = np.ones_like(door_func.times_right)
 
-    w, fw = alpert_fourier_transform(door_func, N=1500)
+    wmin = - np.pi / door_func.delta_t
+    w, fw = alpert_fourier_transform(door_func, wmin=wmin, N=1500)
 
     fw_ref = tmax * np.sinc(w * tmax / np.pi / 2.) * np.exp(1j * w * tmax / 2.)
 
@@ -216,7 +217,7 @@ def test_inverse_alpert():
         -freqs ** 2 / 4.0 - 1.0j * freqs
     )
 
-    alpert = inv_ft_to_alpert(freqs, f_w, M=1000, order=6)
+    alpert = inv_ft_to_alpert(-wmax, 2 * wmax / N, f_w, M=1000, order=6)
 
     def f_ref(t):
         return np.exp(-((t + 1.0) ** 2))

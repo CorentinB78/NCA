@@ -1,5 +1,5 @@
 import numpy as np
-from .function_tools import fourier_transform, inv_fourier_transform
+from .function_tools import fourier_transform, inv_fourier_transform, make_alpert
 from .state_space import StateSpace
 from .core_steady_state import CoreSolverSteadyState
 from .fixed_point_loop_solver import fixed_point_loop
@@ -74,6 +74,8 @@ class SolverSteadyState:
         nr_orbitals,
         local_evol,
         time_mesh,
+        M,
+        order,
         orbital_names=None,
         forbidden_states=None,
     ):
@@ -95,6 +97,8 @@ class SolverSteadyState:
 
         self.D = len(local_evol)
         self.N = len(time_mesh)
+        self.M = M
+        self.order = order
         assert self.D == 2**nr_orbitals - len(self.state_space.forbidden_states)
 
         self._hybs = {}
@@ -103,14 +107,14 @@ class SolverSteadyState:
 
         even, odd = self.state_space.get_states_by_parity()
 
-        self.core = CoreSolverSteadyState(local_evol, time_mesh, even, odd)
+        self.core = CoreSolverSteadyState(local_evol, time_mesh, even, odd, M, order)
 
         self.time_mesh = time_mesh
         self.freq_mesh = self.core.freq_mesh
 
         self._lock_hybs = False
 
-    def add_bath(self, orbital, delta_grea, delta_less):
+    def add_bath(self, orbital, hyb_grea, hyb_less):
         """
         Connect a bath to the local system and describe the corresponding hybridization functions.
 
@@ -118,8 +122,8 @@ class SolverSteadyState:
 
         Arguments:
             orbital -- int, which orbital to connect the bath to
-            delta_grea -- 1D array, greater hybridization function on time mesh of the solver
-            delta_less -- 1D array, lesser hybridization function on time mesh of the solver
+            hyb_grea -- 1D array, greater hybridization function on time mesh of the solver
+            hyb_less -- 1D array, lesser hybridization function on time mesh of the solver
 
         Raises:
             RuntimeError: A bath was added after starting calculation
@@ -128,10 +132,15 @@ class SolverSteadyState:
             raise RuntimeError("A bath cannot be added after starting calculation")
 
         states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
+        delta_t = 2 * np.pi / (len(self.freq_mesh) * self.freq_mesh.delta)
+        hyb_grea_alpert = make_alpert(delta_t, self.M, self.order, hyb_grea)
+        hyb_less_alpert = make_alpert(delta_t, self.M, self.order, hyb_less)
+        hyb_grea = hyb_grea(self.time_mesh.values())
+        hyb_less = hyb_less(self.time_mesh.values())
 
         for a, b in zip(states_a, states_b):
-            self._hybs[a].append((b, delta_grea, delta_less))
-            self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
+            self._hybs[a].append((b, hyb_grea_alpert, hyb_less))
+            self._hybs[b].append((a, hyb_less_alpert.conj(), np.conj(hyb_grea)))
 
     def greater_loop(
         self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0, return_iterations=False

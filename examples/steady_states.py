@@ -5,7 +5,7 @@ import nca
 import numpy as np
 import matplotlib.pyplot as plt
 
-mesh = nca.Mesh(100.0, 200001)
+time_mesh = nca.Mesh(100.0, 200001)
 
 ### local (diagonal) Hamiltonian
 eps = -2.0
@@ -17,14 +17,15 @@ Gamma = 1.0  # Hybridization strength
 beta = 3.0  # inverse temperature
 Ef = 0.0  # Fermi level
 D = 6.0  # half bandwidth
-delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
+dos = nca.make_gaussian_dos(D)
+hyb_grea, hyb_less = nca.make_hyb_times(dos, beta, Ef, Gamma, time_mesh)
 
 ### solver
-S = nca.SolverSteadyState(2, H_loc, mesh)
+S = nca.SolverSteadyState(2, H_loc, time_mesh, M=100000, order=6)
 
-S.add_bath(0, delta_grea, delta_less)  # orbital 0 -> up
-S.add_bath(1, delta_grea, delta_less)  # orbital 1 -> down
-# /!\ carefull with order of delta_grea, delta_less
+S.add_bath(0, hyb_grea, hyb_less)  # orbital 0 -> up
+S.add_bath(1, hyb_grea, hyb_less)  # orbital 1 -> down
+# /!\ carefull with order of grea and less
 
 basis = S.state_space.basis
 print("local basis:", basis)
@@ -48,6 +49,7 @@ plt.xlim(-10, 10)
 plt.legend()
 plt.title("R^>(w)")
 plt.xlabel("w")
+plt.savefig("/home/corentin/Downloads/R.png", dpi=200)
 plt.show()
 
 m, dos = S.get_DOS(0)  # DOS takes an orbital, 0 -> up, 1 -> dn
@@ -56,4 +58,5 @@ plt.plot(m, dos)
 plt.xlim(-10, 10)
 plt.title("Density of states")
 plt.xlabel("w")
+plt.savefig("/home/corentin/Downloads/DOS.png", dpi=200)
 plt.show()
