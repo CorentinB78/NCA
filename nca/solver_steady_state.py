@@ -122,8 +122,8 @@ class SolverSteadyState:
 
         Arguments:
             orbital -- int, which orbital to connect the bath to
-            hyb_grea -- 1D array, greater hybridization function on time mesh of the solver
-            hyb_less -- 1D array, lesser hybridization function on time mesh of the solver
+            hyb_grea (function:float->complex) -- greater hybridization function as a function of time
+            hyb_less (function:float->complex) -- lesser hybridization function as a function of time
 
         Raises:
             RuntimeError: A bath was added after starting calculation
@@ -137,6 +137,9 @@ class SolverSteadyState:
         hyb_less_alpert = make_alpert(delta_t, self.M, self.order, hyb_less)
         hyb_grea = hyb_grea(self.time_mesh.values())
         hyb_less = hyb_less(self.time_mesh.values())
+
+        if not (np.isfinite(hyb_grea).all() and np.isfinite(hyb_less).all()):
+            raise ValueError("Hybridization functions are not finite!")
 
         for a, b in zip(states_a, states_b):
             self._hybs[a].append((b, hyb_grea_alpert, hyb_less))
