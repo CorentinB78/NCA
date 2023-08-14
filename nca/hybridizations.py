@@ -589,6 +589,23 @@ def make_semicircular_dos(D):
     return np.vectorize(out)
 
 def make_hyb_times(dos, beta, Ef, hyb_at_fermi_lvl, time_mesh):
+    """
+    Produce hybridization functions (lesser and greater) in the time domain from a density of state (DOS).
+
+    The DOS is given as a callable and evaluated on a frequency grid for FFT.
+    The result is interpolated to produce callables in the time domain for the greater and lesser hybridization functions.
+
+    Arguments:
+    * dos: callable in frequency domain
+    * beta: inverse temperature
+    * Ef: Fermi energy
+    * hyb_at_fermi_lvl: strength of hybridization spectrum at Fermi level
+    * time_mesh (Mesh): a time mesh on which FFT is performed
+
+    Return:
+    * greater: callable in time domain
+    * lesser: callable in time domain
+    """
     freq_mesh = time_mesh.adjoint()
     grea_w, less_w = make_hyb_freqs(dos, beta, Ef, hyb_at_fermi_lvl)
     grea_w = grea_w(freq_mesh.values())
