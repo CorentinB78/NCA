@@ -110,7 +110,7 @@ class SolverSteadyState:
 
         self._lock_hybs = False
 
-    def add_bath(self, orbital, delta_grea, delta_less):
+    def add_bath(self, orbital, hyb_grea, hyb_less):
         """
         Connect a bath to the local system and describe the corresponding hybridization functions.
 
@@ -118,8 +118,8 @@ class SolverSteadyState:
 
         Arguments:
             orbital -- int, which orbital to connect the bath to
-            delta_grea -- 1D array, greater hybridization function on time mesh of the solver
-            delta_less -- 1D array, lesser hybridization function on time mesh of the solver
+            hyb_grea (function:float->complex) -- greater hybridization function as a function of time
+            hyb_less (function:float->complex) -- lesser hybridization function as a function of time
 
         Raises:
             RuntimeError: A bath was added after starting calculation
@@ -128,10 +128,15 @@ class SolverSteadyState:
             raise RuntimeError("A bath cannot be added after starting calculation")
 
         states_a, states_b = self.state_space.get_state_pairs_from_orbital(orbital)
+        hyb_grea = hyb_grea(self.time_mesh.values())
+        hyb_less = hyb_less(self.time_mesh.values())
+
+        if not (np.isfinite(hyb_grea).all() and np.isfinite(hyb_less).all()):
+            raise ValueError("Hybridization functions are not finite!")
 
         for a, b in zip(states_a, states_b):
-            self._hybs[a].append((b, delta_grea, delta_less))
-            self._hybs[b].append((a, np.conj(delta_less), np.conj(delta_grea)))
+            self._hybs[a].append((b, hyb_grea, hyb_less))
+            self._hybs[b].append((a, np.conj(hyb_less), np.conj(hyb_grea)))
 
     def greater_loop(
         self, tol=1e-8, max_iter=100, verbose=False, alpha=1.0, return_iterations=False
