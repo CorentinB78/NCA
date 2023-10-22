@@ -74,8 +74,8 @@ class SolverSteadyState:
         nr_orbitals,
         local_evol,
         time_mesh,
-        M,
-        order,
+        M=None,
+        order=0,
         orbital_names=None,
         forbidden_states=None,
     ):
@@ -97,8 +97,6 @@ class SolverSteadyState:
 
         self.D = len(local_evol)
         self.N = len(time_mesh)
-        self.M = M
-        self.order = order
         assert self.D == 2**nr_orbitals - len(self.state_space.forbidden_states)
 
         self._hybs = {}
@@ -108,6 +106,8 @@ class SolverSteadyState:
         even, odd = self.state_space.get_states_by_parity()
 
         self.core = CoreSolverSteadyState(local_evol, time_mesh, even, odd, M, order)
+        self.order = self.core.order
+        self.M = self.core.M
 
         self.time_mesh = time_mesh
         self.freq_mesh = self.core.freq_mesh

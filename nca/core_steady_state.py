@@ -1,11 +1,11 @@
 import numpy as np
-from .function_tools import fourier_transform, inv_fourier_transform, AlpertMeshFunction, alpert_fourier_transform, inv_ft_to_alpert
+from .function_tools import fourier_transform, inv_fourier_transform, AlpertMeshFunction, alpert_fourier_transform, inv_ft_to_alpert, _get_alpert_regular_rule
 from scipy import integrate
 
 
 class CoreSolverSteadyState:
     # TODO: implement non-diagonal hybridization functions & local Hamiltonian
-    def __init__(self, local_evol, time_mesh, list_even_states, list_odd_states, M, order):
+    def __init__(self, local_evol, time_mesh, list_even_states, list_odd_states, M=None, order=0):
         """
         Non-Crossing Approximation (NCA) solver for steady states in real frequencies --- core functions.
 
@@ -27,7 +27,8 @@ class CoreSolverSteadyState:
         N = self.N
         self.D = len(local_evol)
         self.Z_loc = self.D
-        self.M = M
+        a, _, _ = _get_alpert_regular_rule(order)
+        self.M = M or N // 2 - 2 * a
         self.order = order
 
         self.even_states = list_even_states
