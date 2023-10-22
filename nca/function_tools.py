@@ -222,10 +222,19 @@ def planck_taper_window(mesh, W, eps):
 def _get_alpert_regular_rule(order: int):
     """
     Returns the elements of the Alpert quadrature rule for non-singular functions.
+    
+    Available orders are 0, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 28, 32.
 
     Returns a, x, w
     """
-    if order == 3:
+    if order == 0:
+        a = 0
+
+        x = []
+
+        w = []
+
+    elif order == 3:
         a = 1
 
         x = [1.666666666666667e-01]
@@ -448,7 +457,7 @@ def _get_alpert_regular_rule(order: int):
             1.000000000020760e+00]
 
     else:
-        raise ValueError(f"There is no Alpert rule for order {order}. Available orders are 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 28, 32.")
+        raise ValueError(f"There is no Alpert rule for order {order}. Available orders are 0, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 28, 32.")
 
     return a, np.array(x), np.array(w)
 
@@ -456,6 +465,14 @@ def _get_alpert_regular_rule(order: int):
 class AlpertMeshFunction:
 
     def __init__(self, delta_t, M, order):
+        """
+        Initialize function stored on a mesh adapted for the Alpert rule.
+        
+        Parameters:
+         * delta_t (float): step in the central section
+         * M (int): number of values in the central section
+         * order (int): order of the Alpert rule. If zero, the mesh is simply a regular grid from 0 to tmax, and the right and left sections are empty.
+        """
         a, x, w = _get_alpert_regular_rule(order)
         self.tmax = (M + 2 * a - 1) * delta_t
         self.order = order
@@ -553,21 +570,31 @@ def make_alpert(delta_t, M, order, f):
 
 
 def alpert_fourier_transform(alpert_function, wmin, N):
+    """
+    Fourier transform of function using the Alpert rule.
+    
+    Returns values at frequencies wmin + 2 pi dt k / N, for k=0..N-1 
+    """
     f = alpert_function
     if N < f.M:
         raise ValueError
     dw = 2 * np.pi / (N * f.delta_t)
     w_samples = wmin + np.arange(N) * dw
 
-    out = fft.ifft(f.values_center * np.exp(1j * wmin * f.times_center), n=N, norm="forward")
-    out *= np.exp(1j * np.arange(N) * dw * f.times_center[0])
+    out = f.values_center * np.exp(1j * wmin * f.times_center)
+    if f.order == 0:
+        out[0] *= 0.5
+    out = fft.ifft(out, n=N, norm="forward")
 
-    for kw, w in enumerate(w_samples):
+    if f.order > 0:
+        out *= np.exp(1j * np.arange(N) * dw * f.times_center[0])
 
-        alp_values = np.exp(1j * w * f.times_left) * f.values_left
-        alp_values += np.exp(1j * w * f.times_right) * f.values_right
+        for kw, w in enumerate(w_samples):
 
-        out[kw] += np.sum(f.alpert_weights * alp_values)
+            alp_values = np.exp(1j * w * f.times_left) * f.values_left
+            alp_values += np.exp(1j * w * f.times_right) * f.values_right
+
+            out[kw] += np.sum(f.alpert_weights * alp_values)
 
     out *= f.delta_t
 
