@@ -481,7 +481,8 @@ class AlpertMeshFunction:
         self.a = a
         self.alpert_weights = w
         self.times_left = delta_t * x
-        assert(self.times_left[-1] < self.tmax)
+        if order > 0:
+            assert(self.times_left[-1] < self.tmax)
         self.times_center = delta_t * (a + np.arange(M))
         self.times_right = self.tmax - self.times_left
 

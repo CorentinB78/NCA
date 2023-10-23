@@ -83,7 +83,8 @@ class CoreSolverSteadyState:
 
         for a in self.even_states:
             for b, delta, _ in self.hybridizations[a]:
-                delta_magn += np.abs(delta.values_left[0]) ** 2
+                magn = delta.values_left[0] if delta.order > 0 else delta.values_center[0]
+                delta_magn += np.abs(magn) ** 2
         delta_magn = np.sqrt(delta_magn)
 
         self.R_grea_w[:, even] = np.imag(
