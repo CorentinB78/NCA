@@ -283,6 +283,8 @@ def make_Delta_semicirc(Gamma, D, beta, Ef, time_mesh):
     """
     Lesser and Greater hybridization functions of bath with semicircular DOS.
 
+    /!\ Definition of Gamma is different than in regular hybridization factory functions!
+
     Arguments:
         Gamma -- coupling at zero energy
         D -- half bandwidth

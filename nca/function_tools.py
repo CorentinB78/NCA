@@ -119,6 +119,9 @@ class Mesh:
     def __array__(self, dtype=None):
         return np.asarray(self.values(), dtype=dtype)
 
+    def __repr__(self):
+        return f"Mesh: xmin={self.xmin}, xmax={self.xmax}, nr_samples={self.nr_samples}, delta={self.delta}"
+
 
 def interp(mesh_a, mesh_b, func_b, kind="linear", allow=True):
     if mesh_a is mesh_b:
