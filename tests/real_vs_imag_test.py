@@ -93,6 +93,14 @@ class TestParamsInchworm(unittest.TestCase):
         self.assertAlmostEqual(taus[0], 0.0)
         self.assertAlmostEqual(taus[-1], beta)
 
+        ### define subset of taus
+        idx_subset = np.arange(len(taus))[:: len(taus) // 30]
+        idx_subset = np.append(idx_subset, len(taus) - 1)
+        taus_subset = taus[idx_subset]
+        self.assertGreater(len(taus_subset), 5)
+        self.assertAlmostEqual(taus_subset[0], 0.0)
+        self.assertAlmostEqual(taus_subset[-1], beta)
+
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
 
@@ -109,13 +117,6 @@ class TestParamsInchworm(unittest.TestCase):
 
         freq_mesh, dos = S_real.get_DOS(0)
 
-        idx_subset = np.arange(len(taus))[:: len(taus) // 30]
-        idx_subset = np.append(idx_subset, len(taus) - 1)
-        taus_subset = taus[idx_subset]
-        self.assertGreater(len(taus_subset), 5)
-        self.assertAlmostEqual(taus_subset[0], 0.0)
-        self.assertAlmostEqual(taus_subset[-1], beta)
-
         G_real = gf_tau_from_dos(taus_subset, beta, freq_mesh.values(), dos)
 
         # ### Plot
@@ -128,8 +129,27 @@ class TestParamsInchworm(unittest.TestCase):
         # plt.title(f"Max abs err: {np.max(np.abs(G_real - G_imag[idx_subset]))}")
         # plt.show()
 
+        ### Real time Alpert
+        time_mesh = nca.Mesh(500.0, 300001)
+
+        dos = nca.make_semicircular_dos(D)
+        delta_grea, delta_less = nca.make_hyb_times(dos, beta, 0.0, Gamma, nca.Mesh(1000., 1000000))
+
+        S_real = nca.SolverSteadyState(2, H_loc, time_mesh, order=8)
+
+        S_real.add_bath(0, delta_grea, delta_less)
+        S_real.add_bath(1, delta_grea, delta_less)
+
+        S_real.greater_loop(verbose=True)
+        S_real.lesser_loop(verbose=True)
+
+        freq_mesh, dos = S_real.get_DOS(0)
+
+        G_real_alpert = gf_tau_from_dos(taus_subset, beta, freq_mesh.values(), dos)
+
         ### Compare
         testing.assert_allclose(G_real, G_imag[idx_subset], atol=1e-2)
+        testing.assert_allclose(G_real_alpert, G_imag[idx_subset], atol=1e-2)
 
 
 if __name__ == "__main__":
