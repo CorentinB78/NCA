@@ -67,7 +67,8 @@ class TestParams1(unittest.TestCase):
         D = 6.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
+        dos = make_semicircular_dos(D)
+        delta_grea, delta_less = make_hyb_times(dos, beta, Ef, Gamma, Mesh(200., 800000))
 
         S = SolverSteadyState(2, H_loc, mesh)
         S.add_bath(0, delta_grea, delta_less)
@@ -302,7 +303,8 @@ class TestParamsRenaud(unittest.TestCase):
         ### basis: 0, up, dn, updn
         H_loc = np.array([0.0, -mu, -mu, -2 * mu + U])
 
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
+        dos = make_semicircular_dos(D)
+        delta_grea, delta_less = make_hyb_times(dos, beta, 0.0, Gamma, Mesh(2000., 400000))
 
         S = SolverSteadyState(2, H_loc, time_mesh)
         S.add_bath(0, delta_grea, delta_less)
@@ -367,7 +369,8 @@ class TestInfiniteU(unittest.TestCase):
         D = 6.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
+        dos = make_semicircular_dos(D)
+        delta_grea, delta_less = make_hyb_times(dos, beta, Ef, Gamma, Mesh(200., 400000))
 
         S = AIM_infinite_U(H_loc, mesh)
         S.add_bath(0, delta_grea, delta_less)
@@ -471,7 +474,8 @@ class TestExtendedR0(unittest.TestCase):
         D = 6.0
 
         ### Hybridization
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, Ef, mesh)
+        dos = make_semicircular_dos(D)
+        delta_grea, delta_less = make_hyb_times(dos, beta, Ef, Gamma, Mesh(600., 400000))
 
         S = SolverSteadyState(2, inv_R0, mesh)
 
@@ -568,7 +572,8 @@ class TestExtendedR0ParamsRenaud(unittest.TestCase):
             + 2j * np.pi / decay_t
         )
 
-        delta_less, delta_grea = make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
+        dos = make_semicircular_dos(D)
+        delta_grea, delta_less = make_hyb_times(dos, beta, 0.0, Gamma, Mesh(2000., 400000))
 
         S = SolverSteadyState(2, inv_R0, time_mesh)
         S.add_bath(0, delta_grea, delta_less)

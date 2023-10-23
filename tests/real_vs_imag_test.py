@@ -34,7 +34,8 @@ class TestParams1(unittest.TestCase):
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
 
-        delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
+        dos = nca.make_semicircular_dos(D)
+        delta_grea, delta_less = nca.make_hyb_times(dos, beta, 0.0, Gamma, time_mesh)
 
         S_real = nca.SolverSteadyState(2, H_loc, time_mesh)
         S_real.add_bath(0, delta_grea, delta_less)
@@ -95,7 +96,8 @@ class TestParamsInchworm(unittest.TestCase):
         ### Real time
         time_mesh = nca.Mesh(500.0, 300001)
 
-        delta_less, delta_grea = nca.make_Delta_semicirc(Gamma, D, beta, 0.0, time_mesh)
+        dos = nca.make_semicircular_dos(D)
+        delta_grea, delta_less = nca.make_hyb_times(dos, beta, 0.0, Gamma, nca.Mesh(1000., 1000000))
 
         S_real = nca.SolverSteadyState(2, H_loc, time_mesh)
 
