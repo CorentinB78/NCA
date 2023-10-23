@@ -225,7 +225,7 @@ def planck_taper_window(mesh, W, eps):
 def _get_alpert_regular_rule(order: int):
     """
     Returns the elements of the Alpert quadrature rule for non-singular functions.
-    
+
     Available orders are 0, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 28, 32.
 
     Returns a, x, w
@@ -470,7 +470,7 @@ class AlpertMeshFunction:
     def __init__(self, delta_t, M, order):
         """
         Initialize function stored on a mesh adapted for the Alpert rule.
-        
+
         Parameters:
          * delta_t (float): step in the central section
          * M (int): number of values in the central section
@@ -576,8 +576,8 @@ def make_alpert(delta_t, M, order, f):
 def alpert_fourier_transform(alpert_function, wmin, N):
     """
     Fourier transform of function using the Alpert rule.
-    
-    Returns values at frequencies wmin + 2 pi dt k / N, for k=0..N-1 
+
+    Returns values at frequencies wmin + 2 pi dt k / N, for k=0..N-1
     """
     f = alpert_function
     if N < f.M:
@@ -593,12 +593,10 @@ def alpert_fourier_transform(alpert_function, wmin, N):
     if f.order > 0:
         out *= np.exp(1j * np.arange(N) * dw * f.times_center[0])
 
-        for kw, w in enumerate(w_samples):
+        alp_values = np.exp(1j * w_samples[:, None] * f.times_left[None, :]) * f.values_left[None, :]
+        alp_values += np.exp(1j * w_samples[:, None] * f.times_right[None, :]) * f.values_right[None, :]
 
-            alp_values = np.exp(1j * w * f.times_left) * f.values_left
-            alp_values += np.exp(1j * w * f.times_right) * f.values_right
-
-            out[kw] += np.sum(f.alpert_weights * alp_values)
+        out += np.sum(f.alpert_weights[None, :] * alp_values, axis=1)
 
     out *= f.delta_t
 
@@ -609,24 +607,20 @@ def inv_ft_to_alpert(wmin, dw, func_vals, M, order):
     alpert = AlpertMeshFunction(delta_t=2 * np.pi / (N * dw), M=M, order=order)
     if 2 * alpert.M > N:
         raise ValueError
-    a = alpert.a
-    M = alpert.M
-    dt = alpert.delta_t
 
-    vals_t = fft.fft(func_vals * np.exp(-2j * np.pi * a * np.arange(N) / N), n=N, norm="forward")
-    vals_t = vals_t[:M]
-    # vals_t = fft.fft(func_vals, n=N, norm="forward")
-    # vals_t = vals_t[a:M+a]
-    vals_t *= np.exp(-1j * wmin * alpert.times_center) / dt
+    vals_t = fft.fft(func_vals * np.exp(-2j * np.pi * alpert.a * np.arange(N) / N), n=N, norm="forward")
+    vals_t = vals_t[:alpert.M]
+    vals_t *= np.exp(-1j * wmin * alpert.times_center) / alpert.delta_t
     alpert.values_center = vals_t
 
     w_samples = wmin + np.arange(N) * dw
+
     alpert.values_left = np.empty_like(alpert.times_left, dtype=complex)
     for k, t in enumerate(alpert.times_left):
-        alpert.values_left[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * dt)
+        alpert.values_left[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * alpert.delta_t)
 
     alpert.values_right = np.empty_like(alpert.times_right, dtype=complex)
     for k, t in enumerate(alpert.times_right):
-        alpert.values_right[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * dt)
+        alpert.values_right[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * alpert.delta_t)
 
     return alpert
