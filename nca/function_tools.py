@@ -562,6 +562,18 @@ class AlpertMeshFunction:
 
 
 def make_alpert(delta_t, M, order, f):
+    """
+    Discretize a callable function f onto an Alpert mesh.
+
+    Arguments:
+    * delta_t (float): time step in central section
+    * M (int): number of points in central section
+    * order(int): order of the Alpert rule
+    * f (function<float->complex>): function to discretize
+
+    Returns:
+    * AlpertMeshFunction
+    """
     out = AlpertMeshFunction(delta_t, M, order)
     out.values_left = f(out.times_left)
     out.values_right = f(out.times_right)
@@ -578,6 +590,15 @@ def alpert_fourier_transform(alpert_function, wmin, N):
     Fourier transform of function using the Alpert rule.
 
     Returns values at frequencies wmin + 2 pi dt k / N, for k=0..N-1
+
+    Arguments:
+    * alpert_function (AlpertMeshFunction): function to Fourier transform, defined on an Alpert mesh
+    * wmin (float): smallest (most negative) frequency to sample
+    * N (int): number of frequencies to sample. Must be >= number of points in central section of original function.
+
+    Returns:
+    * w_samples (1D ndarray): frequency samples
+    * out (1D ndarray): Fourier transform
     """
     f = alpert_function
     if N < f.M:
@@ -603,6 +624,19 @@ def alpert_fourier_transform(alpert_function, wmin, N):
     return w_samples, out
 
 def inv_ft_to_alpert(wmin, dw, func_vals, M, order):
+    """
+    Inverse Fourier transform a function of frequencies into a function of times defined on an Alpert mesh.
+
+    Arguments:
+    * wmin (float): smallest (most negative) frequency of the sampled original function
+    * dw (float): frequency step of original function sampling
+    * func_vals (1D ndarray<complex>): values of original function on frequency samples
+    * M (int): number of values in central seciton of Alpert mesh. Should be <= len(func_vals) // 2
+    * order (int): order of Alpert rule. 0 means regular time mesh.
+
+    Returns:
+    * AlpertMeshFunction
+    """
     N = len(func_vals)
     alpert = AlpertMeshFunction(delta_t=2 * np.pi / (N * dw), M=M, order=order)
     if 2 * alpert.M > N:

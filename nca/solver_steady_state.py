@@ -85,13 +85,15 @@ class SolverSteadyState:
         For now only diagonal hybridizations and local hamiltonians are supported.
 
         Arguments:
-            nr_orbitals -- int, number of orbitals in local system
-            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (negative imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
-            time_mesh -- Mesh instance for time coordinates
+            * nr_orbitals (int) -- number of orbitals in local system
+            * local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (negative imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
+            * time_mesh (Mesh) -- Mesh instance for time coordinates
 
-        Keyword Arguments:
-            orbital_names -- list of strings to name orbitals (default: {None})
-            forbidden_states -- list of states (int) which have infinite energy, and are thus forbidden (default: {None})
+        Optional Arguments:
+            * M (int): number of values in central section of Alpert mesh. If None (default), it is chosen automatically.
+            * order (int): order of Alpert rule used. Default to 0.
+            * orbital_names (list<str>)-- list of strings to name orbitals (default: {None})
+            * forbidden_states (list<int>) -- list of states (int) which have infinite energy, and are thus forbidden (default: {None})
         """
         self.state_space = StateSpace(nr_orbitals, orbital_names, forbidden_states)
 

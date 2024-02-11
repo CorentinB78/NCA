@@ -12,10 +12,14 @@ class CoreSolverSteadyState:
         For now only diagonal hybridizations and local hamiltonians are supported.
 
         Arguments:
-            local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (negative imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
-            time_mesh -- an instance of `Mesh` for time coordinates
-            list_even_states -- list of int representing the even states
-            list_odd_states -- list of int representing the odd states
+            * local_evol -- list of local evolution for each state. A local evolution can be a complex number representing energy and damping (negative imag part), or the values of 1/R_0^{reta}(w) on the frequency mesh adjoint to `time_mesh`.
+            * time_mesh -- an instance of `Mesh` for time coordinates
+            * list_even_states -- list of int representing the even states
+            * list_odd_states -- list of int representing the odd states
+
+        Optional arguments:
+            * M (int): number of values in central section of Alpert mesh. If None (default), it is chosen automatically.
+            * order (int): order of Alpert rule used. Default to 0.
 
         Attributes:
             hybridizations -- dictionnary describing hybridization processes. Keys are the initial states. Values are lists of all processes starting at the same state. Each process is a tuple (intermediate_state, delta_grea, delta_less) where delta_grea/less are 1D arrays containing hybridization functions (as sampled on `time_mesh`). delta_grea is the one participating to the greater SE, while delta_less is for the lesser SE. The process changes the local system from the initial state to the intermediate state then back to the starting state. Conjugate processes are not added automatically.
@@ -148,7 +152,9 @@ class CoreSolverSteadyState:
         If the parity flag is False, the roles of odd and even states are inverted.
 
         Arguments:
-            parity_flag -- boolean
+            * parity_flag -- boolean
+            * M (int)
+            * order (int)
         """
         group_1, group_2 = self.even_states, self.odd_states
         if parity_flag:
