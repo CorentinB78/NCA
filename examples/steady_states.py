@@ -21,11 +21,10 @@ dos = nca.make_gaussian_dos(D)
 hyb_grea, hyb_less = nca.make_hyb_times(dos, beta, Ef, Gamma, time_mesh)
 
 ### solver
-S = nca.SolverSteadyState(2, H_loc, time_mesh, M=100000, order=6)
+S = nca.SolverSteadyState(2, H_loc, time_mesh, order=6)
 
 S.add_bath(0, hyb_grea, hyb_less)  # orbital 0 -> up
 S.add_bath(1, hyb_grea, hyb_less)  # orbital 1 -> down
-# /!\ carefull with order of grea and less
 
 basis = S.state_space.basis
 print("local basis:", basis)
@@ -47,9 +46,8 @@ for k in range(4):
 
 plt.xlim(-10, 10)
 plt.legend()
-plt.title("R^>(w)")
-plt.xlabel("w")
-plt.savefig("/home/corentin/Downloads/R.png", dpi=200)
+plt.title(r"$R^>(\omega)$")
+plt.xlabel(r"$\omega$")
 plt.show()
 
 m, dos = S.get_DOS(0)  # DOS takes an orbital, 0 -> up, 1 -> dn
@@ -57,6 +55,5 @@ m, dos = S.get_DOS(0)  # DOS takes an orbital, 0 -> up, 1 -> dn
 plt.plot(m, dos)
 plt.xlim(-10, 10)
 plt.title("Density of states")
-plt.xlabel("w")
-plt.savefig("/home/corentin/Downloads/DOS.png", dpi=200)
+plt.xlabel(r"$\omega$")
 plt.show()
