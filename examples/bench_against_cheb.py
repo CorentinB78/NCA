@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 time_mesh = nca.Mesh(200.0, int(4e5)).adjoint()
+# time_mesh = nca.Mesh(400.0, int(5e5)).adjoint()
 print(time_mesh)
 
 ### local (diagonal) Hamiltonian
@@ -18,7 +19,9 @@ Gamma = 1.0  # Hybridization strength
 beta = 100.0  # inverse temperature
 Ef = 0.0  # Fermi level
 D = 20.0  # half bandwidth
+
 dos = nca.make_gaussian_dos(D)
+# dos = nca.make_semicircular_dos(D)
 hyb_grea, hyb_less = nca.make_hyb_times(dos, beta, Ef, Gamma, time_mesh)
 
 ### solver
@@ -42,19 +45,19 @@ S.lesser_loop(max_iter=20, verbose=True)
 ### plot results
 R_grea_w = S.get_R_grea_w()
 
-for k in range(4):
-    plt.plot(S.freq_mesh, R_grea_w[:, k], label=basis[k])
+for k in range(2):
+    plt.plot(S.freq_mesh, R_grea_w[:, k] / 2., label=f"R^R_{k}")
 
 plt.xlim(-20, 10)
 plt.legend()
-plt.title(r"$R^>(\omega)$")
+plt.title(r"$R^R(\omega)$")
 plt.xlabel(r"$\omega$")
 plt.show()
 
 R_less_w = S.get_R_less_w()
 
-for k in range(4):
-    plt.plot(S.freq_mesh, R_less_w[:, k], label=basis[k])
+for k in range(2):
+    plt.plot(S.freq_mesh, R_less_w[:, k], label=f"R^<_{k}")
 
 plt.xlim(-20, 10)
 plt.legend()
