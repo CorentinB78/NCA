@@ -6,13 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 time_mesh = nca.Mesh(200.0, int(4e5)).adjoint()
-# time_mesh = nca.Mesh(400.0, int(5e5)).adjoint()
 print(time_mesh)
 
 ### local (diagonal) Hamiltonian
-U = 5.0
-eps = - U / 2.
-H_loc = np.array([0.0, eps, eps, 2 * eps + U])  # basis: 0, up, dn, updn
+eps0 = 0.0
+eps1 = -2.5
+H_loc = np.array([eps0, eps1, eps1, eps0])  # basis: 0, up, dn, updn
 
 ### Hybridization to a semicircular bath
 Gamma = 1.0  # Hybridization strength
