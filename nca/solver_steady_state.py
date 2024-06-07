@@ -475,7 +475,7 @@ class SolverSteadyState:
 ######## Shortcuts for often used solvers ########
 
 
-def AIM_infinite_U(local_evol, time_mesh):
+def AIM_infinite_U(local_evol, time_mesh, M=None, order=0):
     """
     Return solver for a single-site Anderson impurity model with infinite Hubbard interaction
 
@@ -483,9 +483,12 @@ def AIM_infinite_U(local_evol, time_mesh):
         local_evol -- list of local evolutions (length 3, see doc of `SolverSteadyState`)
         time_mesh -- Mesh instance for time coordinates
 
+    Optional Arguments:
+        * M (int): number of values in central section of Alpert mesh. If None (default), it is chosen automatically.
+        * order (int): order of Alpert rule used. Default to 0.
     Returns:
         a SolverSteadyState instance
     """
     return SolverSteadyState(
-        2, local_evol, time_mesh, orbital_names=["up", "dn"], forbidden_states=[3]
+        2, local_evol, time_mesh, orbital_names=["up", "dn"], forbidden_states=[3], M=M, order=order
     )

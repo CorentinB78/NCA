@@ -5,13 +5,14 @@ import nca
 import numpy as np
 import matplotlib.pyplot as plt
 
-time_mesh = nca.Mesh(200.0, int(4e5)).adjoint()
+x = 3
+time_mesh = nca.Mesh(x*200.0, x*x*int(4e5)).adjoint()
 print(time_mesh)
 
 ### local (diagonal) Hamiltonian
 eps0 = 0.0
 eps1 = -2.5
-H_loc = np.array([eps0, eps1, eps1, eps0])  # basis: 0, up, dn, updn
+H_loc = np.array([eps0, eps1, eps1])  # basis: 0, up, dn, (updn -> forbidden)
 
 ### Hybridization to a semicircular bath
 Gamma = 1.0  # Hybridization strength
@@ -24,22 +25,15 @@ dos = nca.make_gaussian_dos(D)
 hyb_grea, hyb_less = nca.make_hyb_times(dos, beta, Ef, Gamma, time_mesh)
 
 ### solver
-S = nca.SolverSteadyState(2, H_loc, time_mesh, order=6)
+S = nca.AIM_infinite_U(H_loc, time_mesh, order=6)
+S.state_space.orbital_names = ["up", "down"]
 
 S.add_bath(0, hyb_grea, hyb_less)  # orbital 0 -> up
 S.add_bath(1, hyb_grea, hyb_less)  # orbital 1 -> down
 
-basis = S.state_space.basis
-print("local basis:", basis)
-print("list of orbitals:", S.state_space.orbital_names)
-
-# rename for nicer legends
-basis = ["empty", "up", "down", "full"]
-S.state_space.orbital_names = ["up", "down"]
 
 ### calculation
 S.greater_loop(max_iter=20, verbose=True)
-S.lesser_loop(max_iter=20, verbose=True)
 
 ### plot results
 R_grea_w = S.get_R_grea_w()
@@ -53,6 +47,7 @@ plt.title(r"$R^R(\omega)$")
 plt.xlabel(r"$\omega$")
 plt.show()
 
+S.lesser_loop(max_iter=20, verbose=True)
 R_less_w = S.get_R_less_w()
 
 for k in range(2):
@@ -66,7 +61,7 @@ plt.show()
 
 m, dos = S.get_DOS(0)  # DOS takes an orbital, 0 -> up, 1 -> dn
 
-plt.plot(m, dos)
+plt.plot(m, np.pi * Gamma * dos)
 plt.xlim(-20, 20)
 plt.title("Density of states")
 plt.xlabel(r"$\omega$")
