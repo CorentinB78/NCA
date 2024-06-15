@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import fft
 from scipy import integrate, interpolate
+from functools import cache
 from .utilities import print_warning_large_error
 
 
@@ -585,7 +586,19 @@ def make_alpert(delta_t, M, order, f):
     return out
 
 
-def alpert_fourier_transform(alpert_function, wmin, N):
+@cache
+def get_exp(wmin, N, dw, t):
+    w_samples = wmin + np.arange(N) * dw
+    return np.exp(1j * w_samples * t)
+
+
+@cache
+def get_exp_center(a, M, dt, w):
+    times_center = dt * (a + np.arange(M))
+    return np.exp(1j * w * times_center)
+
+
+def alpert_fourier_transform(alpert_function, wmin, N, return_freqs=False):
     """
     Fourier transform of function using the Alpert rule.
 
@@ -595,33 +608,37 @@ def alpert_fourier_transform(alpert_function, wmin, N):
     * alpert_function (AlpertMeshFunction): function to Fourier transform, defined on an Alpert mesh
     * wmin (float): smallest (most negative) frequency to sample
     * N (int): number of frequencies to sample. Must be >= number of points in central section of original function.
+    * return_freqs (bool, optional): whether to return frequencies. Default to False.
 
     Returns:
-    * w_samples (1D ndarray): frequency samples
+    * w_samples (1D ndarray, optional): frequency samples, only if return_freqs=True.
     * out (1D ndarray): Fourier transform
     """
     f = alpert_function
     if N < f.M:
         raise ValueError
     dw = 2 * np.pi / (N * f.delta_t)
-    w_samples = wmin + np.arange(N) * dw
 
-    out = f.values_center * np.exp(1j * wmin * f.times_center)
+    out = f.values_center * get_exp_center(f.a, f.M, f.delta_t, wmin)
     if f.order == 0:
         out[0] *= 0.5
     out = fft.ifft(out, n=N, norm="forward")
 
     if f.order > 0:
-        out *= np.exp(1j * np.arange(N) * dw * f.times_center[0])
+        out *= get_exp(0.0, N, dw, f.times_center[0])
 
-        alp_values = np.exp(1j * w_samples[:, None] * f.times_left[None, :]) * f.values_left[None, :]
-        alp_values += np.exp(1j * w_samples[:, None] * f.times_right[None, :]) * f.values_right[None, :]
-
-        out += np.sum(f.alpert_weights[None, :] * alp_values, axis=1)
+        for w, t, v in zip(f.alpert_weights, f.times_left, f.values_left):
+            out += w * v * get_exp(wmin, N, dw, t)
+        for w, t, v in zip(f.alpert_weights, f.times_right, f.values_right):
+            out += w * v * get_exp(wmin, N, dw, t)
 
     out *= f.delta_t
 
-    return w_samples, out
+    if return_freqs:
+        w_samples = wmin + np.arange(N) * dw
+        return w_samples, out
+
+    return out
 
 def inv_ft_to_alpert(wmin, dw, func_vals, M, order):
     """
@@ -644,17 +661,16 @@ def inv_ft_to_alpert(wmin, dw, func_vals, M, order):
 
     vals_t = fft.fft(func_vals * np.exp(-2j * np.pi * alpert.a * np.arange(N) / N), n=N, norm="forward")
     vals_t = vals_t[:alpert.M]
-    vals_t *= np.exp(-1j * wmin * alpert.times_center) / alpert.delta_t
+    vals_t *= get_exp_center(alpert.a, alpert.M, alpert.delta_t, -wmin) / alpert.delta_t
     alpert.values_center = vals_t
 
-    w_samples = wmin + np.arange(N) * dw
-
     alpert.values_left = np.empty_like(alpert.times_left, dtype=complex)
+
     for k, t in enumerate(alpert.times_left):
-        alpert.values_left[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * alpert.delta_t)
+        alpert.values_left[k] = np.sum(get_exp(wmin, N, dw, -t) * func_vals) / (N * alpert.delta_t)
 
     alpert.values_right = np.empty_like(alpert.times_right, dtype=complex)
     for k, t in enumerate(alpert.times_right):
-        alpert.values_right[k] = np.sum(np.exp(-1j * w_samples * t) * func_vals) / (N * alpert.delta_t)
+        alpert.values_right[k] = np.sum(get_exp(wmin, N, dw, -t) * func_vals) / (N * alpert.delta_t)
 
     return alpert

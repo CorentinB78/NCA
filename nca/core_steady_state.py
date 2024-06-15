@@ -169,7 +169,7 @@ class CoreSolverSteadyState:
         del R_grea
 
         for k in range(len(S_grea)):
-            _, f = alpert_fourier_transform(S_grea[k], wmin=self.freq_mesh.xmin, N=len(self.freq_mesh))
+            f = alpert_fourier_transform(S_grea[k], wmin=self.freq_mesh.xmin, N=len(self.freq_mesh))
             S_grea[k] = f
 
 

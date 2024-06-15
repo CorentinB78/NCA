@@ -201,7 +201,7 @@ def test_alpert_fourier_transform():
     door_func.values_right = np.ones_like(door_func.times_right)
 
     wmin = - np.pi / door_func.delta_t
-    w, fw = alpert_fourier_transform(door_func, wmin=wmin, N=1500)
+    w, fw = alpert_fourier_transform(door_func, wmin=wmin, N=1500, return_freqs=True)
 
     fw_ref = tmax * np.sinc(w * tmax / np.pi / 2.) * np.exp(1j * w * tmax / 2.)
 
