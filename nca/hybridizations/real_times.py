@@ -30,6 +30,11 @@ def make_semicircular_dos(D):
             return 0.0
     return np.vectorize(out)
 
+def make_smeared_semicircular_dos(D, eta):
+    def out(w):
+        return -2.0 / (np.pi * D) * np.imag(w / D + 1.j * eta - np.sqrt(w / D + 1.j * eta - 1.0) * np.sqrt(w / D + 1.j * eta + 1.0))
+    return out
+
 def make_hyb_times(dos, beta, Ef, hyb_at_fermi_lvl, time_mesh):
     """
     Produce hybridization functions (lesser and greater) in the time domain from a density of state (DOS).

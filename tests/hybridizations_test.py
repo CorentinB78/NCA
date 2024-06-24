@@ -16,13 +16,17 @@ def single_point_FT(f, a, b, w0):
 
 
 def test_gaussian_dos_test():
+    ww = np.linspace(-10., 10., 100)
     dos = make_gaussian_dos(2.4)
     assert abs(integrate.quad(dos, -np.inf, np.inf)[0] - 1.0) < 1e-5
+    assert np.all(dos(ww) >= 0.0)
 
 
 def test_lorentzian_dos_test():
+    ww = np.linspace(-10., 10., 100)
     dos = make_lorentzian_dos(2.4)
     assert abs(integrate.quad(dos, -np.inf, np.inf)[0] - 1.0) < 1e-5
+    assert np.all(dos(ww) >= 0.0)
 
 
 def test_semicircular_dos_test():
@@ -30,6 +34,15 @@ def test_semicircular_dos_test():
     dos = make_semicircular_dos(2.4)
 
     assert abs(np.trapz(x=ww, y=dos(ww)) - 1.0) < 1e-5
+    assert np.all(dos(ww) >= 0.0)
+
+
+def test_smeared_semicircular_dos_test():
+    ww = np.linspace(-10., 10., 100)
+    dos = make_smeared_semicircular_dos(2.4, 0.75)
+
+    assert abs(integrate.quad(dos, -np.inf, np.inf)[0] - 1.0) < 1e-5
+    assert np.all(dos(ww) >= 0.0)
 
 
 def test_precision_semi_circ():
