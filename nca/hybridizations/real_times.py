@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import interpolate
-from ..function_tools import inv_fourier_transform
+from ..function_tools import Mesh, inv_fourier_transform
 from .utils import fermi
 
 
@@ -48,6 +48,8 @@ def make_hyb_times(dos, beta, Ef, hyb_at_fermi_lvl, time_mesh):
     * greater: callable in time domain
     * lesser: callable in time domain
     """
+    # extend time mesh by 1% to avoid extrapolations at boundaries issues
+    time_mesh = Mesh(time_mesh.xmax * 1.01, len(time_mesh))
     freq_mesh = time_mesh.adjoint()
     grea_w, less_w = make_hyb_freqs(dos, beta, Ef, hyb_at_fermi_lvl)
     grea_w = grea_w(freq_mesh.values())
