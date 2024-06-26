@@ -111,6 +111,14 @@ class Mesh:
 
         return out
 
+    def __iter__(self):
+        def it(mesh):
+            value = mesh.xmin
+            for _ in range(mesh.nr_samples):
+                yield value
+                value += mesh.delta
+        return it(self)
+
     def __len__(self):
         return self.nr_samples
 

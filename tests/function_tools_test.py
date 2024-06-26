@@ -83,6 +83,15 @@ class MeshTest(unittest.TestCase):
         self.assertAlmostEqual(m_adj.xmax / m_adj.delta, m.xmax / m.delta)
         self.assertAlmostEqual(m.delta * m_adj.delta, 2 * np.pi / L)
 
+    def test_iter(self):
+        m = Mesh(10., 3)
+        l = []
+        for v in m:
+            l.append(v)
+
+        assert l == [-10., 0., 10.]
+        assert l == list(np.array(m))
+
 
 class TestInterp(unittest.TestCase):
     def test_linear_complex(self):
