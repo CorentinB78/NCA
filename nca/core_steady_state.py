@@ -54,8 +54,8 @@ class CoreSolverSteadyState:
             else:
                 self.inv_R0_reta_w[:, s] = g
 
-        self.R_grea_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
-        self.R_less_w = np.zeros((N, self.D), dtype=float)  # imaginary part only
+        self.R_grea_w = None
+        self.R_less_w = None
 
         self.nr_grea_feval = 0
         self.nr_less_feval = 0
@@ -82,6 +82,8 @@ class CoreSolverSteadyState:
         Populates R_grea_w
         """
         even = self.is_even_state
+        # initialize array
+        self.R_grea_w = np.zeros((self.N, self.D), dtype=float)  # imaginary part only
 
         delta_magn = 0.0
 
@@ -101,6 +103,8 @@ class CoreSolverSteadyState:
 
         Populates R_less_w
         """
+        # initialize array
+        self.R_less_w = np.zeros((self.N, self.D), dtype=float)  # imaginary part only
         even = self.is_even_state
 
         delta_magn = 0.0
